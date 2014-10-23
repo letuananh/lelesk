@@ -150,13 +150,13 @@ class WordNetGlossTag:
 		WordNetGlossTag.sk_cache[sk] = sid
 		return sid
 
-        def cache_all_sensekey(self):
-                conn = sqlite3.connect(WORDNET_30_PATH)
+	def cache_all_sensekey(self):
+			conn = sqlite3.connect(WORDNET_30_PATH)
 		c = conn.cursor()
 		result = c.execute("""SELECT pos, synsetid, sensekey FROM wordsXsensesXsynsets""").fetchall()
-                for (pos, synid, sk) in result:
+		for (pos, synid, sk) in result:
 			sif = SenseInfo(pos, synid, sk)
-                        WordNetGlossTag.sk_cache[sk] = sif
+			WordNetGlossTag.sk_cache[sk] = sif
 		conn.close()
 	
 	hypehypo_cache=dict()	
@@ -176,7 +176,7 @@ class WordNetGlossTag:
 		WordNetGlossTag.hypehypo_cache[sid] = senses
 		return senses
 	
-        def cache_all_hypehypo(self):
+	def cache_all_hypehypo(self):
 		query = '''SELECT linkid, ssynsetid, dpos, dsynsetid, dsensekey, dwordid
 					FROM sensesXsemlinksXsenses 
 					WHERE linkid in (1,2,3,4, 11,12,13,14,15,16,40,50,81);'''
@@ -184,11 +184,10 @@ class WordNetGlossTag:
 		c = conn.cursor()
 		result = c.execute(query).fetchall()
 		for (linkid, ssynsetid, dpos, dsynsetid, dsensekey, dwordid) in result:
-                        if not WordNetGlossTag.hypehypo_cache.has_key(ssynsetid):
-                                 WordNetGlossTag.hypehypo_cache[ssynsetid] = []
-                        WordNetGlossTag.hypehypo_cache[ssynsetid].append(SenseInfo(dpos, dsynsetid, dsensekey, dwordid))
+			if not WordNetGlossTag.hypehypo_cache.has_key(ssynsetid):
+					 WordNetGlossTag.hypehypo_cache[ssynsetid] = []
+			WordNetGlossTag.hypehypo_cache[ssynsetid].append(SenseInfo(dpos, dsynsetid, dsensekey, dwordid))
 		conn.close()
-
 
 	word_cache=dict()
 	def get_hypehypo_text(self, sid):
@@ -216,14 +215,14 @@ class WordNetGlossTag:
 					lemmas.append(lemma)
 				conn.close()
 			return lemmas
-        def cache_all_words(self):
-                query = '''SELECT wordid, lemma FROM words'''
-                conn = sqlite3.connect(WORDNET_30_PATH)
-                c = conn.cursor()
-                result = c.execute(query).fetchall()
-                for (wordid, lemma) in result:
-                        WordNetGlossTag.word_cache[wordid] = lemma
-                conn.close()
+	def cache_all_words(self):
+		query = '''SELECT wordid, lemma FROM words'''
+		conn = sqlite3.connect(WORDNET_30_PATH)
+		c = conn.cursor()
+		result = c.execute(query).fetchall()
+		for (wordid, lemma) in result:
+				WordNetGlossTag.word_cache[wordid] = lemma
+		conn.close()
 
 			
 	sense_cache = dict()
@@ -242,16 +241,16 @@ class WordNetGlossTag:
 		WordNetGlossTag.sense_cache[lemma] = senses
 		return senses
 	
-        def cache_all_sense_by_lemma(self):
-                conn = sqlite3.connect(WORDNET_30_PATH)
-		c = conn.cursor()
-		result = c.execute("""SELECT lemma, pos, synsetid, sensekey, definition FROM wordsXsensesXsynsets;""").fetchall()
+	def cache_all_sense_by_lemma(self):
+			conn = sqlite3.connect(WORDNET_30_PATH)
+	c = conn.cursor()
+	result = c.execute("""SELECT lemma, pos, synsetid, sensekey, definition FROM wordsXsensesXsynsets;""").fetchall()
 
-		for (lemma, pos, synsetid, sensekey, definition) in result:
-                        if not WordNetGlossTag.sense_cache.has_key(lemma):
-                                WordNetGlossTag.sense_cache[lemma] = []
-			WordNetGlossTag.sense_cache[lemma].append(SenseInfo(pos, synsetid, sensekey, '', definition))
-		conn.close()
+	for (lemma, pos, synsetid, sensekey, definition) in result:
+					if not WordNetGlossTag.sense_cache.has_key(lemma):
+							WordNetGlossTag.sense_cache[lemma] = []
+		WordNetGlossTag.sense_cache[lemma].append(SenseInfo(pos, synsetid, sensekey, '', definition))
+	conn.close()
 
 	def get_gloss_by_sk(self, sk):
 		sid = self.get_senseinfo_by_sk(sk).get_full_sid()
