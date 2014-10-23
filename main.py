@@ -150,7 +150,6 @@ class WordNetSQL:
 		conn.close()
 		WordNetSQL.sk_cache[sk] = sid
 		return sid
-
 	def cache_all_sensekey(self):
 		conn = sqlite3.connect(WORDNET_30_PATH)
 		c = conn.cursor()
@@ -176,7 +175,6 @@ class WordNetSQL:
 		conn.close()
 		WordNetSQL.hypehypo_cache[sid] = senses
 		return senses
-	
 	def cache_all_hypehypo(self):
 		query = '''SELECT linkid, ssynsetid, dpos, dsynsetid, dsensekey, dwordid
 					FROM sensesXsemlinksXsenses 
@@ -240,7 +238,6 @@ class WordNetSQL:
 		conn.close()
 		WordNetSQL.sense_cache[lemma] = senses
 		return senses
-	
 	def cache_all_sense_by_lemma(self):
 		conn = sqlite3.connect(WORDNET_30_PATH)
 		c = conn.cursor()
@@ -383,6 +380,8 @@ def get_sense_candidates(res, word):
 		sk = sense.sk
 		# t.start()
 		synset_gloss = res.sscol.by_sk(sk)
+		if not synset_gloss:
+			continue
 		candidate.tokens.extend([ x.text for x in synset_gloss.def_gloss ])
 		for child_token in synset_gloss.def_gloss:
 			# t2.start() 
@@ -427,7 +426,7 @@ class WSDResources:
 Perform Word-sense disambiguation with extended simplified LESK and 
 annotated WordNet 3.0
 '''
-def lelesk_wsd(word, context, res=None):
+def lelesk_wsd(word, context, res=None, verbose=False):
 	# Preparation: Load all resources (SQLite cache, WNGlossTag, etc.)
 	if res==None:
 		res = WSDResources.singleton()
@@ -435,11 +434,11 @@ def lelesk_wsd(word, context, res=None):
 	candidates = get_sense_candidates(res, word)
 	#2. Calculate overlap between the context and each given word
 	context_set = set(context)
-	print(context_set)
+	if verbose: print(context_set)
 	scores = []
 	for candidate in candidates:
 		candidate_set = set([ res.wnl.lemmatize(x) for x in candidate.tokens])
-		print(candidate_set)
+		if verbose: print(candidate_set)
 		score = len(context_set.intersection(candidate_set))
 		scores.append([candidate, score])
 	scores.sort(key=itemgetter(1))
@@ -450,9 +449,13 @@ def lelesk_wsd(word, context, res=None):
 # Main function
 #-----------------------------------------------------------------------
 def main():	
-	testset = { 'test' : test_wsd, 'optimize' : optimize }
+	testset = { 'test' : test_wsd, 'optimize' : optimize, 'candidates' : test_candidates, 'batch' : batch_wsd }
 	if len(sys.argv) < 2 or sys.argv[1] not in testset.keys():
 		print_usage()
+	if sys.argv[1] == 'candidates' and len(sys.argv) == 3:
+		testset[sys.argv[1]](sys.argv[2])
+	if sys.argv[1] == 'batch' and len(sys.argv) == 3:
+		testset[sys.argv[1]](sys.argv[2])
 	else:
 		testset[sys.argv[1]]()
 	pass
@@ -461,8 +464,36 @@ def print_usage():
 	print('''Usage:
 	%s: Show this usage
 	%s test: Run bank test
-	''' % (sys.argv[0], sys.argv[0]))
+	%s candidates your_chosen_word: Find candidates for a given word
+	%s batch path_to_your_file: Perform WSD on a batch file
+	''' % (sys.argv[0],) * 4)
 	pass
+
+def batch_wsd(file_loc):
+	t = Timer()
+	t.start("Reading file %s" % file_loc)
+	lines = open(os.path.expanduser(file_loc)).readlines()
+	t.end("File has been loaded")
+	
+	t.start('Loading needed resource ...')
+	WSDResources.singleton()
+	t.end('Needed resources have been loaded')
+		
+	for line in lines:
+		parts = line.split('\t')
+		if len(parts) == 2:
+			word = parts[0].strip()
+			sentence_text = parts[1].strip()
+		# Perform WSD on given word & sentence
+		t.start()
+		context = prepare_data(sentence_text)
+		print ("WSD for the word: %s" % word)
+		print ("Context: %s" % context)
+		scores = lelesk_wsd(word, context)
+		print ("Top 3 scores")
+		for score in scores[:3]:
+			print ("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss))
+		t.end('Analysed word ["%s"] on sentence: %s' % (word, sentence_text))
 
 def test_wsd():
 	word = 'bank'
@@ -550,15 +581,15 @@ def optimize():
 
 	pass
 
-def test_expand():
+def test_candidates(word):
 	res = WSDResources.singleton()
-	word = 'table'
-	print ("Retrieving candidates for the word %s" % word)
-	candidates = get_sense_candidates(res, 'table')
+	if not word:
+		word = 'table'
+	print ('Retrieving candidates for the word ["%s"]' % word)
+	candidates = get_sense_candidates(res, word)
 	if candidates:
-		print("Candidate count: %s" % len(candidates))
+		print("Candidates count: %s" % len(candidates))
 		for candidate in candidates:
-			continue
 			print "-" * 80
 			print str(candidate.sense)
 			print "-" * 80
