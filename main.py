@@ -33,6 +33,7 @@ import re
 from nltk.corpus import stopwords
 from operator import itemgetter
 from le_utile import *
+from wnglosstag import *
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
@@ -42,27 +43,27 @@ WORDNET_30_GLOSSTAG_PATH = os.path.expanduser('~/wordnet/glosstag')
 reword = re.compile('\w+')
 
 class XMLCache:
-        cache = dict()
+	cache = dict()
 
-        @staticmethod
-        def parse(file_path):
-                if not XMLCache.cache.has_key(file_path):
-                        XMLCache.cache[file_path] = ET.parse(file_path).getroot()
-                return XMLCache.cache[file_path]
+	@staticmethod
+	def parse(file_path):
+		if not XMLCache.cache.has_key(file_path):
+				XMLCache.cache[file_path] = ET.parse(file_path).getroot()
+		return XMLCache.cache[file_path]
 
-        @staticmethod
-        def cache_all(root_folder, verbose=True):
-                fcount = 0
-                for root, subfolders, files in os.walk(root_folder):
-                        for filename in files:
-                                if filename.endswith('-wngloss.xml') or filename.endswith('-wnann.xml') or filename.endswith('-wnword.xml'):
-                                        fullpath = os.path.join(root, filename)
-                                        XMLCache.parse(fullpath)
-                                        if verbose:
-                                                print('Caching file: %s' % fullpath)
-                                # print filename
-                                fcount += 1
-                print ("Found %s XML files" % fcount)
+	@staticmethod
+	def cache_all(root_folder, verbose=True):
+		fcount = 0
+		for root, subfolders, files in os.walk(root_folder):
+			for filename in files:
+				if filename.endswith('-wngloss.xml') or filename.endswith('-wnann.xml') or filename.endswith('-wnword.xml'):
+					fullpath = os.path.join(root, filename)
+					XMLCache.parse(fullpath)
+					if verbose:
+						print('Caching file: %s' % fullpath)
+				# print filename
+				fcount += 1
+		print ("Found %s XML files" % fcount)
 
 class SenseGloss:
 	def __init__(self, sid, sfrom, sto, stype):
@@ -110,7 +111,7 @@ class GlossInfo:
 	def __str__(self):
 		return "lemma: %s | pos: %s | tag: %s | text: %s | sk: %s | sid: %s | from-to: [%s-%s] | stype: %s" % 		 (self.lemma, self.pos, self.tag, self.text, self.sk, self.sid, self.sfrom, self.sto, self.stype)
 
-class WordNetGlossTag:
+class WordNetSQL:
 	def __init__(self, wndb_path, glosstag_path):
 		self.wndb_path = wndb_path
 		self.glosstag_path = glosstag_path
@@ -135,8 +136,8 @@ class WordNetGlossTag:
 	
 	sk_cache = dict()
 	def get_senseinfo_by_sk(self, sk):
-		if WordNetGlossTag.sk_cache.has_key(sk):
-			return WordNetGlossTag.sk_cache[sk]
+		if WordNetSQL.sk_cache.has_key(sk):
+			return WordNetSQL.sk_cache[sk]
 		conn = sqlite3.connect(WORDNET_30_PATH)
 		c = conn.cursor()
 		result = c.execute("""SELECT pos, synsetid, sensekey 
@@ -147,22 +148,22 @@ class WordNetGlossTag:
 			pos, synid, sk = result
 			sid = SenseInfo(pos, synid, sk)
 		conn.close()
-		WordNetGlossTag.sk_cache[sk] = sid
+		WordNetSQL.sk_cache[sk] = sid
 		return sid
 
 	def cache_all_sensekey(self):
-			conn = sqlite3.connect(WORDNET_30_PATH)
+		conn = sqlite3.connect(WORDNET_30_PATH)
 		c = conn.cursor()
 		result = c.execute("""SELECT pos, synsetid, sensekey FROM wordsXsensesXsynsets""").fetchall()
 		for (pos, synid, sk) in result:
 			sif = SenseInfo(pos, synid, sk)
-			WordNetGlossTag.sk_cache[sk] = sif
+			WordNetSQL.sk_cache[sk] = sif
 		conn.close()
 	
 	hypehypo_cache=dict()	
 	def get_hypehypo(self, sid):
-		if WordNetGlossTag.hypehypo_cache.has_key(sid):
-			return WordNetGlossTag.hypehypo_cache[sid]
+		if WordNetSQL.hypehypo_cache.has_key(sid):
+			return WordNetSQL.hypehypo_cache[sid]
 		query = '''SELECT linkid, dpos, dsynsetid, dsensekey, dwordid
 					FROM sensesXsemlinksXsenses 
 					WHERE ssynsetid = ? and linkid in (1,2,3,4, 11,12,13,14,15,16,40,50,81);'''
@@ -173,7 +174,7 @@ class WordNetGlossTag:
 		for (linkid, dpos, dsynsetid, dsensekey, dwordid) in result:
 			senses.append(SenseInfo(dpos, dsynsetid, dsensekey, dwordid))
 		conn.close()
-		WordNetGlossTag.hypehypo_cache[sid] = senses
+		WordNetSQL.hypehypo_cache[sid] = senses
 		return senses
 	
 	def cache_all_hypehypo(self):
@@ -184,9 +185,9 @@ class WordNetGlossTag:
 		c = conn.cursor()
 		result = c.execute(query).fetchall()
 		for (linkid, ssynsetid, dpos, dsynsetid, dsensekey, dwordid) in result:
-			if not WordNetGlossTag.hypehypo_cache.has_key(ssynsetid):
-					 WordNetGlossTag.hypehypo_cache[ssynsetid] = []
-			WordNetGlossTag.hypehypo_cache[ssynsetid].append(SenseInfo(dpos, dsynsetid, dsensekey, dwordid))
+			if not WordNetSQL.hypehypo_cache.has_key(ssynsetid):
+					 WordNetSQL.hypehypo_cache[ssynsetid] = []
+			WordNetSQL.hypehypo_cache[ssynsetid].append(SenseInfo(dpos, dsynsetid, dsensekey, dwordid))
 		conn.close()
 
 	word_cache=dict()
@@ -199,8 +200,8 @@ class WordNetGlossTag:
 			wordids = [ sense.wordid for sense in senses ]
 			need_to_find = []
 			for wordid in wordids:
-				if WordNetGlossTag.word_cache.has_key(wordid):
-					lemmas.append(WordNetGlossTag.word_cache[wordid])
+				if WordNetSQL.word_cache.has_key(wordid):
+					lemmas.append(WordNetSQL.word_cache[wordid])
 				else:
 					need_to_find.append(str(wordid))
 			if len(need_to_find) > 0:
@@ -211,7 +212,7 @@ class WordNetGlossTag:
 				c = conn.cursor()
 				result = c.execute(query).fetchall()
 				for (wordid, lemma) in result:
-					WordNetGlossTag.word_cache[wordid] = lemma
+					WordNetSQL.word_cache[wordid] = lemma
 					lemmas.append(lemma)
 				conn.close()
 			return lemmas
@@ -221,14 +222,13 @@ class WordNetGlossTag:
 		c = conn.cursor()
 		result = c.execute(query).fetchall()
 		for (wordid, lemma) in result:
-				WordNetGlossTag.word_cache[wordid] = lemma
+				WordNetSQL.word_cache[wordid] = lemma
 		conn.close()
 
-			
 	sense_cache = dict()
 	def get_all_senses(self, lemma):
-		if WordNetGlossTag.sense_cache.has_key(lemma):
-			return WordNetGlossTag.sense_cache[lemma]
+		if WordNetSQL.sense_cache.has_key(lemma):
+			return WordNetSQL.sense_cache[lemma]
 		conn = sqlite3.connect(WORDNET_30_PATH)
 		c = conn.cursor()
 		result = c.execute("""SELECT pos, synsetid, sensekey, definition 
@@ -238,19 +238,19 @@ class WordNetGlossTag:
 		for (pos, synsetid, sensekey, definition) in result:
 			senses.append(SenseInfo(pos, synsetid, sensekey, '', definition))
 		conn.close()
-		WordNetGlossTag.sense_cache[lemma] = senses
+		WordNetSQL.sense_cache[lemma] = senses
 		return senses
 	
 	def cache_all_sense_by_lemma(self):
-			conn = sqlite3.connect(WORDNET_30_PATH)
-	c = conn.cursor()
-	result = c.execute("""SELECT lemma, pos, synsetid, sensekey, definition FROM wordsXsensesXsynsets;""").fetchall()
+		conn = sqlite3.connect(WORDNET_30_PATH)
+		c = conn.cursor()
+		result = c.execute("""SELECT lemma, pos, synsetid, sensekey, definition FROM wordsXsensesXsynsets;""").fetchall()
 
-	for (lemma, pos, synsetid, sensekey, definition) in result:
-					if not WordNetGlossTag.sense_cache.has_key(lemma):
-							WordNetGlossTag.sense_cache[lemma] = []
-		WordNetGlossTag.sense_cache[lemma].append(SenseInfo(pos, synsetid, sensekey, '', definition))
-	conn.close()
+		for (lemma, pos, synsetid, sensekey, definition) in result:
+			if not WordNetSQL.sense_cache.has_key(lemma):
+				WordNetSQL.sense_cache[lemma] = []
+			WordNetSQL.sense_cache[lemma].append(SenseInfo(pos, synsetid, sensekey, '', definition))
+		conn.close()
 
 	def get_gloss_by_sk(self, sk):
 		sid = self.get_senseinfo_by_sk(sk).get_full_sid()
@@ -258,8 +258,8 @@ class WordNetGlossTag:
 	
 	gloss_cache = dict()
 	def get_gloss_by_id(self, sid):
-		if WordNetGlossTag.gloss_cache.has_key(sid):
-			return WordNetGlossTag.gloss_cache[sid]
+		if WordNetSQL.gloss_cache.has_key(sid):
+			return WordNetSQL.gloss_cache[sid]
 		if not sid:
 			return None
 		gloss_file = self.search_by_id(sid)
@@ -296,10 +296,10 @@ class WordNetGlossTag:
 						features['wnsk'] = wnsk[0].get('value')
 					a_sense.tokens.append(GlossInfo.from_dict(features))
 			# Read glosses data
-			WordNetGlossTag.gloss_cache[sid] = a_sense
+			WordNetSQL.gloss_cache[sid] = a_sense
 			return a_sense
 		else:
-			WordNetGlossTag.gloss_cache[sid] = None
+			WordNetSQL.gloss_cache[sid] = None
 			return None
 		pass
 			
@@ -320,14 +320,14 @@ class WordNetGlossTag:
 	
 	@staticmethod
 	def get_default(auto_cache=True):
-                wng = WordNetGlossTag(WORDNET_30_PATH, WORDNET_30_GLOSSTAG_PATH)
-                # Cache everything into memory if needed
-                if auto_cache:
-                        wng.cache_all_words()
-                        wng.cache_all_sense_by_lemma()
-                        wng.cache_all_hypehypo()
-                        wng.cache_all_sensekey()
-                return wng
+		wnsql = WordNetSQL(WORDNET_30_PATH, WORDNET_30_GLOSSTAG_PATH)
+		# Cache everything into memory if needed
+		if auto_cache:
+			wnsql.cache_all_words()
+			wnsql.cache_all_sense_by_lemma()
+			wnsql.cache_all_hypehypo()
+			wnsql.cache_all_sensekey()
+		return wnsql
 		
 '''
 Given a sentence as a raw text string, perform tokenization, lemmatization
@@ -345,9 +345,12 @@ class GlossTokens:
 		self.tokens = []
 		self.sk = []
 
-def get_gloss_token(wng, sk):
+def get_gloss_token(res, sk):
+	tokens = []
+	ss_gloss = res.sscol.by_sk(sk)
+	
 	gt = GlossTokens()
-	senseinfo = wng.get_senseinfo_by_sk(sk)
+	senseinfo = res.wnsql.get_senseinfo_by_sk(sk)
 	if not senseinfo:
 		return gt
 	sid = senseinfo.get_full_sid()
@@ -366,57 +369,77 @@ class WSDCandidate:
 		self.sense = sense #SenseInfo
 		self.tokens = []
 
-def get_sense_candidates(wng, word):
-	senses = wng.get_all_senses(word)
+def get_sense_candidates(res, word):
+	senses = res.wnsql.get_all_senses(word)
 	candidates = []
 	# sc = len(senses)
 	num = 0
-        # t = Timer()
-        # t2 = Timer()
+	# t = Timer()
+	# t2 = Timer()
 	for sense in senses:
 		num+=1
 		# print("Processing sense %s/%s for the word [%s]" % (num, sc, word))
 		candidate = WSDCandidate(sense)
 		sk = sense.sk
-                # t.start()
-		gt = get_gloss_token(wng, sk)
-		candidate.tokens += gt.tokens
-		for child_sk in gt.sk:
-                        # t2.start() 
-			child_gt = get_gloss_token(wng, child_sk)
-			#print child_sk + str(child_gt.tokens)
-			candidate.tokens += child_gt.tokens
-                        # t2.stop().log('get child gloss')
-			# extend hypernyms & hyponyms
-                        senseinfo = wng.get_senseinfo_by_sk(child_sk)
+		# t.start()
+		synset_gloss = res.sscol.by_sk(sk)
+		candidate.tokens.extend([ x.text for x in synset_gloss.def_gloss ])
+		for child_token in synset_gloss.def_gloss:
+			# t2.start() 
+			# Find gloss of each token in the gloss of the current sense
+			if res.sscol.by_sk(child_token.sk):
+				child_gloss = res.sscol.by_sk(child_token.sk)
+				candidate.tokens.extend([ x.text for x in child_gloss.def_gloss ])
+			# t2.stop().log('get child gloss')
+			# extend hypernyms & hyponyms of each token in the gloss
+			# of the current sense
+			senseinfo = res.wnsql.get_senseinfo_by_sk(child_token.sk)
 			if senseinfo:
-                                # t2.start()
-				more_tokens = wng.get_hypehypo_text(senseinfo.sid)
+				# t2.start()
+				more_tokens = res.wnsql.get_hypehypo_text(senseinfo.sid)
 				# print("Extending: %s" % more_tokens)
 				candidate.tokens += more_tokens # Hype & hypo of tagged tokens
-                                #t2.stop().log('Finished hypehypo')
+				#t2.stop().log('Finished hypehypo')
 		#print "-" * 20
+		candidate.tokens = filter(None, candidate.tokens)
 		#print "Final: %s" % candidate.tokens
 		candidates.append(candidate)
-                # t.stop().log('Finished build a candidate')
+		# t.stop().log('Finished build a candidate')
 	return candidates
 	pass
 
-''' Perform Word-sense disambiguation with extended simplified LESK and 
+class WSDResources:
+	
+	__singleton_instance = None
+	
+	def __init__(self):
+		self.sscol = WNGlossTag.read_all_glosstag(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'))
+		self.wnsql = WordNetSQL.get_default()
+		self.wnl = WordNetLemmatizer()
+
+	@staticmethod
+	def singleton():
+		if WSDResources.__singleton_instance == None:
+			WSDResources.__singleton_instance = WSDResources()
+		return WSDResources.__singleton_instance
+		
+''' 
+Perform Word-sense disambiguation with extended simplified LESK and 
 annotated WordNet 3.0
 '''
-def lelesk_wsd(word, context):
-	wng = WordNetGlossTag.get_default()
+def lelesk_wsd(word, context, res=None):
+	# Preparation: Load all resources (SQLite cache, WNGlossTag, etc.)
+	if res==None:
+		res = WSDResources.singleton()
 	#1. Retrieve candidates for the given word
-	candidates = get_sense_candidates(wng, word)
+	candidates = get_sense_candidates(res, word)
 	#2. Calculate overlap between the context and each given word
 	context_set = set(context)
-	# print(context_set)
+	print(context_set)
 	scores = []
-	wnl = WordNetLemmatizer()
 	for candidate in candidates:
-		candidate_set = set([ wnl.lemmatize(x) for x in candidate.tokens])
-		# print(candidate_set)
+		candidate_set = set([ res.wnl.lemmatize(x) for x in candidate.tokens])
+		print(candidate_set)
 		score = len(context_set.intersection(candidate_set))
 		scores.append([candidate, score])
 	scores.sort(key=itemgetter(1))
@@ -427,26 +450,29 @@ def lelesk_wsd(word, context):
 # Main function
 #-----------------------------------------------------------------------
 def main():	
-        testset = { 'test' : test_wsd, 'optimize' : optimize }
-        if len(sys.argv) < 2 or sys.argv[1] not in testset.keys():
-                print_usage()
-        else:
-                testset[sys.argv[1]]()
+	testset = { 'test' : test_wsd, 'optimize' : optimize }
+	if len(sys.argv) < 2 or sys.argv[1] not in testset.keys():
+		print_usage()
+	else:
+		testset[sys.argv[1]]()
 	pass
 
 def print_usage():
-        print('''Usage:
-        %s: Show this usage
-        %s test: Run bank test
-        ''' % (sys.argv[0], sys.argv[0]))
-        pass
+	print('''Usage:
+	%s: Show this usage
+	%s test: Run bank test
+	''' % (sys.argv[0], sys.argv[0]))
+	pass
 
 def test_wsd():
-        word = 'bank'
+	word = 'bank'
 	sentence_texts = ['I went to the bank to deposit money.', 'The river bank is full of dead fish.']
-        t = Timer()
+	t = Timer()
+	t.start('Loading needed resource ...')
+	WSDResources.singleton()
+	t.end('Needed resources have been loaded')
 	for sentence_text in sentence_texts:
-                t.start()
+		t.start()
 		context = prepare_data(sentence_text)
 		print ("WSD for the word: %s" % word)
 		print ("Context: %s" % context)
@@ -454,88 +480,85 @@ def test_wsd():
 		print ("Top 3 scores")
 		for score in scores[:3]:
 			print ("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss))
-                t.end('Analysed sentence: %s' % sentence_text)
+		t.end('Analysed sentence: %s' % sentence_text)
 
 def optimize():
-        wng = WordNetGlossTag.get_default()
-        t = Timer()
+	t = Timer()
 
-        # Cache all XML
-        t.start()
-        XMLCache.cache_all(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'standoff'))
-        t.end('Cached all XML')
+	# Load needed resources
+	t.start('Started loading needed resources ...')
+	res = WSDResources.singleton()
+	t.end('Preload all needed resources')
 
-        t.start()
-        wng.cache_all_words()
-        t.stop().log('Cache all words')
+	t.start()
+	res.wnsql.cache_all_words()
+	t.stop().log('Cache all words')
 
-        t.start()
-        wng.cache_all_sensekey()
-        t.stop().log('Cache all sensekeys')
+	t.start()
+	res.wnsql.cache_all_sensekey()
+	t.stop().log('Cache all sensekeys')
 
-        t.start()
-        wng.cache_all_hypehypo()
-        t.stop().log('Cache all hypehypo')
+	t.start()
+	res.wnsql.cache_all_hypehypo()
+	t.stop().log('Cache all hypehypo')
 
-        t.start()
-        wng.cache_all_sense_by_lemma()
-        t.stop().log('Cache all sense by lemma')
+	t.start()
+	res.wnsql.cache_all_sense_by_lemma()
+	t.stop().log('Cache all sense by lemma')
 
-        # Profiling select senses from database
-        t.start()
-        senses = wng.get_all_senses('table')
-        print len(senses)
-        t.stop().log('Test select all senses')
+	# Profiling select senses from database
+	t.start()
+	senses = res.wnsql.get_all_senses('table')
+	print len(senses)
+	t.stop().log('Test select all senses')
 
-        # Profiling get by sk
-        t.start()
-        sk = 'side%1:15:01::'
-	file_loc = wng.search_by_sk(sk)
-	sid = wng.get_senseinfo_by_sk(sk).get_full_sid()
+	# Profiling get by sk
+	t.start()
+	sk = 'side%1:15:01::'
+	file_loc = res.wnsql.search_by_sk(sk)
+	sid = res.wnsql.get_senseinfo_by_sk(sk).get_full_sid()
 	print ("Looking at %s - File loc: %s - SID: %s" % (sk,file_loc, sid))
-	a_sense = wng.get_gloss_by_sk(sk)
+	a_sense = res.wnsql.get_gloss_by_sk(sk)
 	dump_sense(a_sense)
-        t.stop().log('Profiling select by sensekey')
+	t.stop().log('Profiling select by sensekey')
 
-        # Profiling loading
-        t.start()
-	wng = WordNetGlossTag.get_default()
-	print wng.search_by_id('a00002527')
-	gloss = wng.get_gloss_by_id('a00002527')
+	# Profiling loading
+	t.start()
+	print res.wnsql.search_by_id('a00002527')
+	gloss = res.wnsql.get_gloss_by_id('a00002527')
 	dump_sense(gloss)
-        t.stop().log('Test search gloss')
+	t.stop().log('Test search gloss')
 
-        # Profiling loading again
-        t.start()
-	wng = WordNetGlossTag.get_default()
-	print wng.search_by_id('a00002527')
-	gloss = wng.get_gloss_by_id('a00002527')
+	# Profiling loading again
+	t.start()
+	print res.wnsql.search_by_id('a00002527')
+	gloss = res.wnsql.get_gloss_by_id('a00002527')
 	dump_sense(gloss)
-        t.stop().log('Test search gloss again')
+	t.stop().log('Test search gloss again')
 
 
-        # Profiling expand the word table
-        t.start()
-        test_expand()
-        t.stop()
-        t.log('Expanding [table]')
+	# Profiling expand the word table
+	t.start()
+	test_expand()
+	t.stop()
+	t.log('Expanding [table]')
 
-        # The application should run faster from the second time
-        t.start()
-        test_expand()
-        t.stop().log('Expanding [table] again ...')
- 
-        pass
+	# The application should run faster from the second time
+	t.start()
+	test_expand()
+	t.stop().log('Expanding [table] again ...')
+
+	pass
 
 def test_expand():
-	wng = WordNetGlossTag.get_default()
+	res = WSDResources.singleton()
 	word = 'table'
 	print ("Retrieving candidates for the word %s" % word)
-	candidates = get_sense_candidates(wng, 'table')
+	candidates = get_sense_candidates(res, 'table')
 	if candidates:
 		print("Candidate count: %s" % len(candidates))
 		for candidate in candidates:
-                        continue
+			continue
 			print "-" * 80
 			print str(candidate.sense)
 			print "-" * 80
@@ -550,7 +573,7 @@ def dump_sense(a_sense, show_tagged_only=True):
 				print ('\t' + str(token))
 
 def test_wordnetgloss():
-	wng = WordNetGlossTag.get_default()
+	wng = WordNetSQL.get_default()
 	print wng.search_by_id('a00002527')
 	gloss = wng.get_gloss_by_id('a00002527')
 	dump_sense(gloss)

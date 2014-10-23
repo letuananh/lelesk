@@ -38,9 +38,12 @@ class Timer:
     def __init__(self):
         self.start_time = time.time()
         self.end_time = time.time()
-    def start(self):
-            self.start_time = time.time()
-            return self
+    def start(self, task_note=''):
+		if task_note:
+			jilog(u"[%s]\n" % (unicode(task_note),))
+		self.start_time = time.time()
+		return self
+			
     def stop(self):
         self.end_time = time.time()
         return self

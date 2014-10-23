@@ -134,6 +134,7 @@ class ExampleToken:
 class WNGlossTag:
 	@staticmethod
 	def read_xml_data(file_name, synsets=None):
+		print('Loading %s' %file_name)
 		tree = etree.iterparse(file_name)
 		c = Counter()
 		if synsets == None:
@@ -220,25 +221,25 @@ class WNGlossTag:
 		all_synsets = SynsetCollection()
 
 		t.start()
+		file_name = os.path.join(root, 'adj.xml')
+		synsets = WNGlossTag.read_xml_data(file_name)
+		all_synsets.merge(synsets)
+		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
+
+		t.start()
+		file_name = os.path.join(root, 'adv.xml')
+		synsets = WNGlossTag.read_xml_data(file_name)
+		all_synsets.merge(synsets)
+		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
+
+		t.start()
+		file_name = os.path.join(root, 'verb.xml')
+		synsets = WNGlossTag.read_xml_data(file_name)
+		all_synsets.merge(synsets)
+		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
+		
+		t.start()
 		file_name = os.path.join(root, 'noun.xml')
-		synsets = WNGlossTag.read_xml_data(file_name)
-		all_synsets.merge(synsets)
-		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
-
-		t.start()
-		file_name = 'adj.xml'
-		synsets = WNGlossTag.read_xml_data(file_name)
-		all_synsets.merge(synsets)
-		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
-
-		t.start()
-		file_name = 'adv.xml'
-		synsets = WNGlossTag.read_xml_data(file_name)
-		all_synsets.merge(synsets)
-		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
-
-		t.start()
-		file_name = 'verb.xml'
 		synsets = WNGlossTag.read_xml_data(file_name)
 		all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
