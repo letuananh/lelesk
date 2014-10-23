@@ -133,7 +133,7 @@ class ExampleToken:
 		
 class WNGlossTag:
 	@staticmethod
-	def read_xml_data(file_name, synsets=None):
+	def read_xml_data(file_name, synsets=None, memory_save=True):
 		print('Loading %s' %file_name)
 		tree = etree.iterparse(file_name)
 		c = Counter()
@@ -142,7 +142,7 @@ class WNGlossTag:
 		for event, element in tree:
 			#print("%s, %4s, %s" % (event, element.tag, element.text))
 			if event == 'end' and element.tag == 'synset':
-				synset = Synset(element.get('id'),element.get('ofs'),element.get('pos'))
+				synset = Synset(element.get('id'),element.get('ofs'),element.get('pos')) if not memory_save else Synset(element.get('id'), '', '')
 				for child in element:
 					if child.tag == 'terms':
 						for grandchild in child:
@@ -152,10 +152,10 @@ class WNGlossTag:
 						for grandchild in child:
 							if grandchild.tag == 'sk':
 								synset.keys.append(grandchild.text)
-					elif child.tag == 'gloss' and child.get('desc') == 'orig':
+					elif child.tag == 'gloss' and child.get('desc') == 'orig' and not memory_save:
 						if child[0].tag == 'orig':
 							synset.gloss_orig = child[0].text
-					elif child.tag == 'gloss' and child.get('desc') == 'text':
+					elif child.tag == 'gloss' and child.get('desc') == 'text' and not memory_save:
 						if child[0].tag == 'text':
 							synset.gloss_text = child[0].text
 					elif child.tag == 'gloss' and child.get('desc') == 'wsd':
@@ -164,14 +164,18 @@ class WNGlossTag:
 								for token_elem in grandchild:
 									if token_elem.tag == 'wf':
 										# Add gloss def
-										tk = synset.add_gloss_token(token_elem.get('id'), token_elem.get('lemma'),token_elem.get('pos'),token_elem.get('tag'))
+										lm = token_elem.get('lemma') if not memory_save else ''
+										tag = token_elem.get('tag') if not memory_save else ''
+										tk = synset.add_gloss_token(token_elem.get('id'), lm,token_elem.get('pos'),tag)
 										if len(token_elem) == 1 and token_elem[0].tag == 'id':
 											tk.sk = token_elem[0].get('sk')
 											tk.text = token_elem[0].text
 										else:
 											tk.text = token_elem.text
 									if token_elem.tag == 'cf':
-										tk = synset.add_gloss_token(token_elem.get('id'), token_elem.get('lemma'),token_elem.get('pos'),token_elem.get('tag'))
+										lm = token_elem.get('lemma') if not memory_save else ''
+										tag = token_elem.get('tag') if not memory_save else ''
+										tk = synset.add_gloss_token(token_elem.get('id'), lm,token_elem.get('pos'),tag)
 										if len(token_elem) == 1 and token_elem[0].tag == 'glob' and len(token_elem[0]) == 1 and token_elem[0][0].tag == 'id':
 											tk.sk = token_elem[0][0].get('sk')
 											tk.text = token_elem[0][0].get('lemma')
@@ -216,31 +220,31 @@ class WNGlossTag:
 				WNGlossTag.rip_wf_elem(token_elem, example_obj)
 
 	@staticmethod
-	def read_all_glosstag(root=os.path.expanduser('~/wordnet/glosstag/merged'), verbose=False):
+	def read_all_glosstag(root=os.path.expanduser('~/wordnet/glosstag/merged'), verbose=False, memory_save=True):
 		t = Timer()
 		all_synsets = SynsetCollection()
 
 		t.start()
 		file_name = os.path.join(root, 'adj.xml')
-		synsets = WNGlossTag.read_xml_data(file_name)
+		synsets = WNGlossTag.read_xml_data(file_name, memory_save=memory_save)
 		all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 
 		t.start()
 		file_name = os.path.join(root, 'adv.xml')
-		synsets = WNGlossTag.read_xml_data(file_name)
+		synsets = WNGlossTag.read_xml_data(file_name, memory_save=memory_save)
 		all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 
 		t.start()
 		file_name = os.path.join(root, 'verb.xml')
-		synsets = WNGlossTag.read_xml_data(file_name)
+		synsets = WNGlossTag.read_xml_data(file_name, memory_save=memory_save)
 		all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 		
 		t.start()
 		file_name = os.path.join(root, 'noun.xml')
-		synsets = WNGlossTag.read_xml_data(file_name)
+		synsets = WNGlossTag.read_xml_data(file_name, memory_save=memory_save)
 		all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 		
