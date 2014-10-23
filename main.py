@@ -478,6 +478,8 @@ def batch_wsd(file_loc):
 	t.start('Loading needed resource ...')
 	WSDResources.singleton()
 	t.end('Needed resources have been loaded')
+	
+	print ('-' * 80)
 		
 	for line in lines:
 		parts = line.split('\t')
@@ -494,6 +496,7 @@ def batch_wsd(file_loc):
 		for score in scores[:3]:
 			print ("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss))
 		t.end('Analysed word ["%s"] on sentence: %s' % (word, sentence_text))
+		print ('-' * 80)
 
 def test_wsd():
 	word = 'bank'
