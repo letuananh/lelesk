@@ -3,17 +3,24 @@ Le's Lesk
 
 An attempt to improve extended LESK using glosstag WordNet
 
+----------------------
+Required packages
+----------------------
 
-Required packages:
 1. WordNet with Semantically Tagged glosses [STG]
+
 Download URL: http://wordnetcode.princeton.edu/glosstag-files/WordNet-3.0-glosstag.tar.bz2
+
 Homepage    : http://wordnet.princeton.edu/glosstag.shtml
 
 2. Princeton WordNet 3.0 SQLite [WNSqlite]
+
 Download URL : http://downloads.sourceforge.net/project/wnsql/wnsql3/sqlite/3.0/sqlite-30.db.zip
+
 Home page    : http://wnsqlbuilder.sourceforge.net/
 
 3. NLTK version 3.0
+
 Home page    : http://nltk.org/
 
 ----------------------
