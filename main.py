@@ -412,7 +412,7 @@ class WSDResources:
 	__singleton_instance = None
 	
 	def __init__(self):
-		self.sscol = WNGlossTag.read_all_glosstag(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'))
+		self.sscol = WNGlossTag.read_all_glosstag(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=True)
 		self.wnsql = WordNetSQL.get_default()
 		self.wnl = WordNetLemmatizer()
 
@@ -497,6 +497,7 @@ def batch_wsd(file_loc):
 			print ("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss))
 		t.end('Analysed word ["%s"] on sentence: %s' % (word, sentence_text))
 		print ('-' * 80)
+	jilog("Batch job finished")
 
 def test_wsd():
 	word = 'bank'

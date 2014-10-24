@@ -226,26 +226,26 @@ class WNGlossTag:
 
 		t.start()
 		file_name = os.path.join(root, 'adj.xml')
-		synsets = WNGlossTag.read_xml_data(file_name, memory_save=memory_save)
-		all_synsets.merge(synsets)
+		synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
+		#all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 
 		t.start()
 		file_name = os.path.join(root, 'adv.xml')
-		synsets = WNGlossTag.read_xml_data(file_name, memory_save=memory_save)
-		all_synsets.merge(synsets)
+		synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
+		#all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 
 		t.start()
 		file_name = os.path.join(root, 'verb.xml')
-		synsets = WNGlossTag.read_xml_data(file_name, memory_save=memory_save)
-		all_synsets.merge(synsets)
+		synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
+		#all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 		
 		t.start()
 		file_name = os.path.join(root, 'noun.xml')
-		synsets = WNGlossTag.read_xml_data(file_name, memory_save=memory_save)
-		all_synsets.merge(synsets)
+		synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
+		#all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 		
 		return all_synsets
