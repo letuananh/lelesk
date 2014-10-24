@@ -6,7 +6,7 @@ An attempt to improve extended LESK using glosstag WordNet
 #REQUIRED PACKAGES
 ----------------------
 
-1. WordNet with Semantically Tagged glosses [STG]
+1. Princeton WordNet Gloss Corpus [WNG]
   - Download URL: http://wordnetcode.princeton.edu/glosstag-files/WordNet-3.0-glosstag.tar.bz2
   - Homepage    : http://wordnet.princeton.edu/glosstag.shtml
 
