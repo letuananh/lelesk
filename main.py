@@ -452,9 +452,9 @@ def main():
 	testset = { 'test' : test_wsd, 'optimize' : optimize, 'candidates' : test_candidates, 'batch' : batch_wsd }
 	if len(sys.argv) < 2 or sys.argv[1] not in testset.keys():
 		print_usage()
-	if sys.argv[1] == 'candidates' and len(sys.argv) == 3:
+	elif len(sys.argv) == 3 and sys.argv[1] == 'candidates':
 		testset[sys.argv[1]](sys.argv[2])
-	if sys.argv[1] == 'batch' and len(sys.argv) == 3:
+	elif len(sys.argv) == 3 and sys.argv[1] == 'batch':
 		testset[sys.argv[1]](sys.argv[2])
 	else:
 		testset[sys.argv[1]]()
@@ -466,7 +466,7 @@ def print_usage():
 	%s test: Run bank test
 	%s candidates your_chosen_word: Find candidates for a given word
 	%s batch path_to_your_file: Perform WSD on a batch file
-	''' % (sys.argv[0],) * 4)
+	''' % ((sys.argv[0],) * 4))
 	pass
 
 def batch_wsd(file_loc):
