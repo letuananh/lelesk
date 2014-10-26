@@ -496,6 +496,8 @@ def test_semcor(file_name, verbose=True):
 		#if c['sentence'] > 100:
 		#	break
 		parts = line.split('\t')
+		if not parts:
+			continue
 		tokens = []
 		for part in parts:
 			if not part:
@@ -575,7 +577,7 @@ def batch_wsd(file_loc):
 		
 	for line in lines:
 		parts = line.split('\t')
-		if len(parts) == 2:
+		if parts and len(parts) == 2:
 			word = parts[0].strip()
 			sentence_text = parts[1].strip()
 			# Perform WSD on given word & sentence
