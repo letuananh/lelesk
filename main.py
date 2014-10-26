@@ -334,7 +334,7 @@ def prepare_data(sentence_text):
 	tokens = nltk.word_tokenize(sentence_text)
 	# Lemmatization
 	wnl = WordNetLemmatizer()
-	tokens = [ wnl.lemmatize(x) for x in tokens]
+	tokens = [ wnl.lemmatize(x) for x in tokens] + tokens
 	return tokens
 
 class GlossTokens:
@@ -438,7 +438,7 @@ def lelesk_wsd(word, context, res=None, verbose=False):
 	if verbose: print(context_set)
 	scores = []
 	for candidate in candidates:
-		candidate_set = set([ res.wnl.lemmatize(x) for x in candidate.tokens])
+		candidate_set = set([ res.wnl.lemmatize(x) for x in candidate.tokens] + candidate.tokens)
 		if verbose: print(candidate_set)
 		score = len(context_set.intersection(candidate_set))
 		scores.append([candidate, score])
@@ -487,18 +487,20 @@ def batch_wsd(file_loc):
 		if len(parts) == 2:
 			word = parts[0].strip()
 			sentence_text = parts[1].strip()
-		# Perform WSD on given word & sentence
-		t.start()
-		context = prepare_data(sentence_text)
-		print ("WSD for the word: %s" % word)
-		print ("Context: %s" % context)
-		scores = lelesk_wsd(word, context)
-		print ("Top 3 scores")
-		for score in scores[:3]:
-			print ("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss))
-		t.end('Analysed word ["%s"] on sentence: %s' % (word, sentence_text))
-		print ('-' * 80)
+			# Perform WSD on given word & sentence
+			t.start()
+			context = prepare_data(sentence_text)
+			print ("WSD for the word: %s" % word)
+			print ("Context: %s" % sentence_text)
+			print ("Context tokens: %s" % set(context))
+			scores = lelesk_wsd(word, context)
+			print ("Top 3 scores")
+			for score in scores[:3]:
+				print ("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss))
+			t.end('Analysed word ["%s"] on sentence: %s' % (word, sentence_text))
+			print ('-' * 80)
 	jilog("Batch job finished")
+	print('Done!')
 
 def test_wsd():
 	word = 'bank'
