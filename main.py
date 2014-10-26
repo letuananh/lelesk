@@ -367,7 +367,8 @@ class WSDCandidate:
 		self.tokens = []
 
 def get_sense_candidates(res, word):
-	senses = res.wnsql.get_all_senses(word)
+	lemmatized_word = res.wnl.lemmatize(word)
+	senses = res.wnsql.get_all_senses(lemmatized_word)
 	candidates = []
 	# sc = len(senses)
 	num = 0
@@ -450,12 +451,14 @@ def lelesk_wsd(word, context, res=None, verbose=False):
 # Main function
 #-----------------------------------------------------------------------
 def main():	
-	testset = { 'test' : test_wsd, 'optimize' : optimize, 'candidates' : test_candidates, 'batch' : batch_wsd }
+	testset = { 'test' : test_wsd, 'optimize' : optimize, 'candidates' : test_candidates, 'batch' : batch_wsd, 'semcor' : test_semcor }
 	if len(sys.argv) < 2 or sys.argv[1] not in testset.keys():
 		print_usage()
 	elif len(sys.argv) == 3 and sys.argv[1] == 'candidates':
 		testset[sys.argv[1]](sys.argv[2])
 	elif len(sys.argv) == 3 and sys.argv[1] == 'batch':
+		testset[sys.argv[1]](sys.argv[2])
+	elif len(sys.argv) == 3 and sys.argv[1] == 'semcor':
 		testset[sys.argv[1]](sys.argv[2])
 	else:
 		testset[sys.argv[1]]()
@@ -467,7 +470,95 @@ def print_usage():
 	%s test: Run bank test
 	%s candidates your_chosen_word: Find candidates for a given word
 	%s batch path_to_your_file: Perform WSD on a batch file
-	''' % ((sys.argv[0],) * 4))
+	%s batch path_to_semcor_test_file: Perform WSD on Semcor (e.g. semcor_wn30.txt)
+	''' % ((sys.argv[0],) * 5))
+	pass
+
+
+Token = namedtuple('Token', ['text', 'sk'])
+def test_semcor(file_name, verbose=True):
+	t = Timer()
+	total_timer = Timer()
+	total_timer.start()
+	lines = open(file_name).readlines()
+	print("Found %s sentences in %s" % (len(lines), file_name))
+	
+	t.start('Loading needed resource ...')
+	res = WSDResources.singleton()
+	t.end('Needed resources have been loaded')
+	
+	print ('-' * 80)
+	
+	c = Counter()
+	sentence_count = len(lines)
+	for line in lines:
+		c.count('sentence')
+		#if c['sentence'] > 100:
+		#	break
+		parts = line.split('\t')
+		tokens = []
+		for part in parts:
+			if not part:
+				continue
+			tk = part.split('|')
+			if not tk or len(tk) != 2:
+				continue
+			tokens.append(Token(tk[0], tk[1]))
+		sentence_text = ' '.join([ x.text for x in tokens ])
+		test_items = [ x for x in tokens if x.sk ]
+		for test_item in test_items:
+			c.count("Word (total)")
+			word = test_item.text
+			# sentence_text = parts[1].strip()
+			# Perform WSD on given word & sentence
+			t.start()
+			context = prepare_data(sentence_text)
+			if verbose:
+				print ("WSD for the word: %s" % word)
+				print ("Context         : %s" % sentence_text)
+				print ("Context tokens  : %s" % set(context))
+				print ("Expected sense  : %s" % test_item.sk) 
+			scores = lelesk_wsd(word, context)
+			if scores and len(scores) > 0:
+				correct_word = False
+				for score in scores:
+					sid = score[0].sense.get_full_sid()
+					sks = res.sscol.by_sid(sid).keys
+					if test_item.sk in sks:
+						correct_word = True
+				if correct_word:
+					c.count('Word (correct)')
+				else:
+					c.count('Word (wrong)')
+			else:
+				c.count('Word (no sense)')
+			
+			if verbose:
+				print ("Top 3 scores")
+			
+			# Check top hit
+			if len(scores) > 0:
+				sid = scores[0][0].sense.get_full_sid()
+				sks = res.sscol.by_sid(sid).keys
+				if test_item.sk in sks:
+					c.count('top1') 
+			
+			for score in scores[:3]:
+				# score = [0] - synset, [1] - score in number
+				sid = score[0].sense.get_full_sid()
+				sks = res.sscol.by_sid(sid).keys
+				if test_item.sk in sks:
+					c.count('top3') 
+				if verbose:
+					print ("Sense: %s - Sensekey: %s- Score: %s - Definition: %s" % (sid, sks, score[1], score[0].sense.gloss))
+			t.end('Sentence (#%s/%s) | Analysed word ["%s"] on sentence: %s' % (c['sentence'], sentence_count, word, sentence_text))
+			print ('-' * 80)
+	jilog("Batch job finished")
+	print('-' * 80)
+	c.summarise()
+	total_timer.end("Total runtime")
+	print('Done!')
+	
 	pass
 
 def batch_wsd(file_loc):
