@@ -41,11 +41,11 @@ On a decent PC with quadcore i7 and 4 GB RAM, it takes ~30 mins to process the w
 
 | Information                  |    Stat |
 |:-----------------------------|--------:|
-| Sentence count               |  37,176 |
+| Sentences                    |  37,176 |
 | Words (Lemmatized wrongly)   |  60,458 |
 | Words (No sense found)       |  79,329 |
-| Word (Lemmatized correctly)  | 112,226 |
-| Word (total)                 | 252,013 |
+| Words (Lemmatized correctly) | 112,226 |
+| Words (total)                | 252,013 |
 | Correct sense found in top 3 |  65,928 |
 | Tagged with correct sense    |  32,967 |
 | Accuracy                     |  29.37% |
