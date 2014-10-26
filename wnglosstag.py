@@ -22,9 +22,11 @@
 #THE SOFTWARE.
 
 from lxml import etree
+from collections import namedtuple
 import os
 import sys
 from le_utile import *
+import pickle
 
 class SynsetCollection:
 	def __init__(self):
@@ -130,8 +132,45 @@ class ExampleToken:
 		return str(self)
 	def __str__(self):
 		return "(id:%s|sk=%s [%s|txt=%s] tag:%s)" % (self.eid, self.sk, self.lemma, self.text, self.tag)
+
+TaggedWord = namedtuple('TaggedWord', ['text', 'sk'])
 		
 class WNGlossTag:
+
+	@staticmethod
+	def element_to_Synset(element, memory_save=True):
+		synset = Synset(element.get('id'),element.get('ofs'),element.get('pos')) if not memory_save else Synset(element.get('id'), '', '')
+		for child in element:
+			if child.tag == 'terms':
+				for grandchild in child:
+					if grandchild.tag == 'term':
+						synset.terms.append(StringTool.strip(grandchild.text))
+			elif child.tag == 'keys':
+				for grandchild in child:
+					if grandchild.tag == 'sk':
+						synset.keys.append(StringTool.strip(grandchild.text))
+			elif child.tag == 'gloss' and child.get('desc') == 'orig' and not memory_save:
+				if child[0].tag == 'orig':
+					synset.gloss_orig = StringTool.strip(child[0].text)
+			elif child.tag == 'gloss' and child.get('desc') == 'text' and not memory_save:
+				if child[0].tag == 'text':
+					synset.gloss_text = StringTool.strip(child[0].text)
+			elif child.tag == 'gloss' and child.get('desc') == 'wsd':
+				for grandchild in child:
+					if grandchild.tag == 'def':
+					#	if synset.sid == 'r00104099':
+					#		etree.dump(element)
+						WNGlossTag.rip_def_gloss(grandchild, synset, memory_save)
+					elif grandchild.tag == 'ex' and len(grandchild) > 0:
+						# flatten & rip all wf
+						example_obj = synset.add_example()
+						WNGlossTag.rip_wf_elem(grandchild, example_obj)
+						# end each example token
+		#print("A synset")
+		# print len(element)
+		#print ','.join([ '%s (%s)' % (x.tag, ','.join([y.tag for y in x])) for x in element ])
+		return synset
+
 	@staticmethod
 	def read_xml_data(file_name, synsets=None, memory_save=True):
 		print('Loading %s' %file_name)
@@ -142,66 +181,73 @@ class WNGlossTag:
 		for event, element in tree:
 			#print("%s, %4s, %s" % (event, element.tag, element.text))
 			if event == 'end' and element.tag == 'synset':
-				synset = Synset(element.get('id'),element.get('ofs'),element.get('pos')) if not memory_save else Synset(element.get('id'), '', '')
-				for child in element:
-					if child.tag == 'terms':
-						for grandchild in child:
-							if grandchild.tag == 'term':
-								synset.terms.append(grandchild.text)
-					elif child.tag == 'keys':
-						for grandchild in child:
-							if grandchild.tag == 'sk':
-								synset.keys.append(grandchild.text)
-					elif child.tag == 'gloss' and child.get('desc') == 'orig' and not memory_save:
-						if child[0].tag == 'orig':
-							synset.gloss_orig = child[0].text
-					elif child.tag == 'gloss' and child.get('desc') == 'text' and not memory_save:
-						if child[0].tag == 'text':
-							synset.gloss_text = child[0].text
-					elif child.tag == 'gloss' and child.get('desc') == 'wsd':
-						for grandchild in child:
-							if grandchild.tag == 'def':
-								for token_elem in grandchild:
-									if token_elem.tag == 'wf':
-										# Add gloss def
-										lm = token_elem.get('lemma') if not memory_save else ''
-										tag = token_elem.get('tag') if not memory_save else ''
-										tk = synset.add_gloss_token(token_elem.get('id'), lm,token_elem.get('pos'),tag)
-										if len(token_elem) == 1 and token_elem[0].tag == 'id':
-											tk.sk = token_elem[0].get('sk')
-											tk.text = token_elem[0].text
-										else:
-											tk.text = token_elem.text
-									if token_elem.tag == 'cf':
-										lm = token_elem.get('lemma') if not memory_save else ''
-										tag = token_elem.get('tag') if not memory_save else ''
-										tk = synset.add_gloss_token(token_elem.get('id'), lm,token_elem.get('pos'),tag)
-										if len(token_elem) == 1 and token_elem[0].tag == 'glob' and len(token_elem[0]) == 1 and token_elem[0][0].tag == 'id':
-											tk.sk = token_elem[0][0].get('sk')
-											tk.text = token_elem[0][0].get('lemma')
-										else:
-											tk.text = token_elem.text
-								# end each def token
-							elif grandchild.tag == 'ex' and len(grandchild) > 0:
-								# flatten & rip all wf
-								example_obj = synset.add_example()
-								WNGlossTag.rip_wf_elem(grandchild, example_obj)
-								# end each example token
-				#print("A synset")
-				# print len(element)
-				#print ','.join([ '%s (%s)' % (x.tag, ','.join([y.tag for y in x])) for x in element ])
+				synset = WNGlossTag.element_to_Synset(element, memory_save)
 				element.clear()
 				synsets.add(synset)
 				# print("Synset: [%s]" % synset)
 			# end if end-synset
 			c.count(element.tag)
-			#if c['synset'] > 4:
-			#	break
-			#element.clear()
 		# print r
 		# c.summarise()
 		return synsets
 		pass
+
+	@staticmethod
+	def extract_for_lesk(file_name, synsets, memory_save=True):
+		print('Loading %s' %file_name)
+		tree = etree.iterparse(file_name)
+		c = Counter()
+		if synsets == None:
+			synsets = SynsetCollection()
+		for event, element in tree:
+			#print("%s, %4s, %s" % (event, element.tag, element.text))
+			if event == 'end' and element.tag == 'synset':
+				synset = WNGlossTag.element_to_Synset(element, memory_save)
+				simplified_synset = Synset(synset.sid, '', '')
+				simplified_synset.keys.extend(synset.keys)
+				simplified_synset.terms.extend(synset.terms)
+				for token in synset.def_gloss:
+					simplified_synset.def_gloss.append(TaggedWord(token.text, token.sk))
+				element.clear()
+				synsets.add(simplified_synset)
+				# print("Synset: [%s]" % synset)
+			# end if end-synset
+			c.count(element.tag)
+		# print r
+		# c.summarise()
+		return synsets
+		pass
+
+	@staticmethod
+	def rip_def_gloss(grandchild, synset, memory_save=True):
+		for token_elem in grandchild:
+			if token_elem.tag == 'wf':
+				# Add gloss def
+				lm = token_elem.get('lemma') if not memory_save else ''
+				tag = token_elem.get('tag') if not memory_save else ''
+				tk = synset.add_gloss_token(token_elem.get('id'), lm,token_elem.get('pos'),tag)
+				if len(token_elem) >= 1 and token_elem[0].tag == 'id':
+					tk.sk = token_elem[0].get('sk')
+					if token_elem[0].text:
+						tk.text = StringTool.strip(token_elem[0].text)
+					else:
+						tk.text = StringTool.strip(token_elem[0].get('lemma'))
+				else:
+					tk.text = StringTool.strip(token_elem.text)
+			if token_elem.tag == 'cf':
+				lm = token_elem.get('lemma') if not memory_save else ''
+				tag = token_elem.get('tag') if not memory_save else ''
+				tk = synset.add_gloss_token(token_elem.get('id'), lm,token_elem.get('pos'),tag)
+				if len(token_elem) >= 1 and token_elem[0].tag == 'glob' and len(token_elem[0]) == 1 and token_elem[0][0].tag == 'id':
+					for tk_kid in token_elem[0]:
+						kid_sk = tk_kid.get('sk')
+						kid_txt = tk_kid.get('lemma')
+						if kid_sk and kid_txt:
+							tk.sk = kid_sk
+							tk.text = StringTool.strip(kid_txt)
+				else:
+					tk.text = StringTool.strip(token_elem.text)
+		# end each def token
 
 	@staticmethod
 	def rip_wf_elem(rootnode, example_obj):
@@ -210,14 +256,44 @@ class WNGlossTag:
 			if token_elem.tag == 'wf':
 				tk = example_obj.add_token(token_elem.get('id'),token_elem.get('lemma'),token_elem.get('tag'))
 				# Add gloss def
-				if len(token_elem) == 1 and token_elem[0].tag == 'id':
+				if len(token_elem) > 1 and token_elem[0].tag == 'id':
 					tk.sk = token_elem[0].get('sk')
-					tk.text = token_elem[0].text
+					if token_elem[0].text:
+						tk.text = StringTool.strip(token_elem[0].text)
+					else:
+						tk.text = StringTool.strip(token_elem[0].get('lemma'))
 				else:
-					tk.text = token_elem.text
+					tk.text = StringTool.strip(token_elem.text)
 			elif token_elem.tag == 'qf':
 				# trip children nodes
 				WNGlossTag.rip_wf_elem(token_elem, example_obj)
+
+	@staticmethod
+	def build_lelesk_data(root=os.path.expanduser('~/wordnet/glosstag/merged'), verbose=False, memory_save=True):
+		t = Timer()
+		all_synsets = SynsetCollection()
+
+		t.start()
+		file_name = os.path.join(root, 'adj.xml')
+		synsets = WNGlossTag.extract_for_lesk(file_name, synsets=all_synsets, memory_save=memory_save)
+		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
+
+		t.start()
+		file_name = os.path.join(root, 'adv.xml')
+		synsets = WNGlossTag.extract_for_lesk(file_name, synsets=all_synsets, memory_save=memory_save)
+		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
+
+		t.start()
+		file_name = os.path.join(root, 'verb.xml')
+		synsets = WNGlossTag.extract_for_lesk(file_name, synsets=all_synsets, memory_save=memory_save)
+		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
+		
+		t.start()
+		file_name = os.path.join(root, 'noun.xml')
+		synsets = WNGlossTag.extract_for_lesk(file_name, synsets=all_synsets, memory_save=memory_save)
+		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
+		
+		return all_synsets
 
 	@staticmethod
 	def read_all_glosstag(root=os.path.expanduser('~/wordnet/glosstag/merged'), verbose=False, memory_save=True):
@@ -227,25 +303,21 @@ class WNGlossTag:
 		t.start()
 		file_name = os.path.join(root, 'adj.xml')
 		synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
-		#all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 
 		t.start()
 		file_name = os.path.join(root, 'adv.xml')
 		synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
-		#all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 
 		t.start()
 		file_name = os.path.join(root, 'verb.xml')
 		synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
-		#all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 		
 		t.start()
 		file_name = os.path.join(root, 'noun.xml')
 		synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
-		#all_synsets.merge(synsets)
 		if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
 		
 		return all_synsets
@@ -254,16 +326,47 @@ class WNGlossTag:
 def main():
 	print ("WordNet glosstag cache demo")
 	rootfolder = os.path.expanduser('~/wordnet/glosstag/merged')
-	all_synsets = WNGlossTag.read_all_glosstag(rootfolder, verbose=True)
+	# all_synsets = WNGlossTag.read_all_glosstag(rootfolder, verbose=True, memory_save=True)
+	all_synsets = WNGlossTag.build_lelesk_data(rootfolder, verbose=True, memory_save=True)
 	print("Total synsets: %s" % all_synsets.count())
 	
 	if all_synsets.by_sid('r00003483'):
 		synset = all_synsets.by_sid('r00003483')
 		print(synset.def_gloss)
-		
+	
+	print ('-' * 80)
 	sk = 'at_bottom%4:02:00::'
 	if all_synsets.by_sk(sk):
 		print(unicode(all_synsets.by_sk(sk)).encode('UTF8'))
+	
+	# Final gloss
+	print ('-'*80)
+	ss = all_synsets.by_sid('r00003483')
+	if ss:
+		main_gloss = []
+		to_be_expanded = []
+		for token in ss.def_gloss:
+			main_gloss.append(token.text)
+			if token.sk:
+				to_be_expanded.append(token.sk)
+		print("Main gloss   : %s" % (main_gloss,))
+		print("To be expaned: %s" % (to_be_expanded,))
+		
+	
+	t = Timer()
+	t.start('Storing data to file...')
+	pickle.dump(all_synsets, open('lelesk.model.dat', 'wb'))
+	t.end('stored into file')
+	
+	# clear memory
+	all_synsets = None
+	
+	t.start('start to load again')
+	all_ss = pickle.load(open('lelesk.model.dat', 'rb'))
+	t.end('Done!')
+	print("Loaded %s synsets from file" % (len(all_ss.synsets),))
+	# [TODO] Using pickle doesn't help at all, I'll take a look at this problem later
+	raw_input("Press any key to continue ...")
 		
 if __name__ == "__main__":
 	main()

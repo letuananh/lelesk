@@ -412,7 +412,8 @@ class WSDResources:
 	__singleton_instance = None
 	
 	def __init__(self):
-		self.sscol = WNGlossTag.read_all_glosstag(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=True)
+		# self.sscol = WNGlossTag.read_all_glosstag(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=True)
+		self.sscol = WNGlossTag.build_lelesk_data(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=False)
 		self.wnsql = WordNetSQL.get_default()
 		self.wnl = WordNetLemmatizer()
 

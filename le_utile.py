@@ -74,6 +74,15 @@ class Counter:
 		for k in self.count_map.keys():
 			print("%s: %d" % (k, self.count_map[k]))
 
+class StringTool:
+	@staticmethod
+	def strip(a_str):
+		return a_str.strip() if a_str else ''
+	
+	@staticmethod
+	def to_str(a_str):
+		return unicode(a_str) if a_str else ''
+
 def main():
 	print("This is an utility module, not an application.")
 	pass
