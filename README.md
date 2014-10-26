@@ -26,8 +26,26 @@ An attempt to improve extended LESK using glosstag WordNet
 
 #USING LeLESK
 ----------------------
-Execute 
+To run WSD on semcor test data (annotated with WordNet 3.0), execute the following command:
 ```
-python main.py
+python main.py semcor semcor_wn30.txt > semcor_wn30.txt.output.txt
 ```
+Or run the prepared shell script:
+```
+bash test.sh
+```
+
+#RESULT
+| Information                  |    Stat |
+|:-----------------------------|--------:|
+| Sentence count               |  37,176 |
+| Words (Lemmatized wrongly)   |  60,458 |
+| Words (No sense found)       |  79,329 |
+| Word (Lemmatized correctly)  | 112,226 |
+| Word (total)                 | 252,013 |
+| Correct sense found in top 3 |  65,928 |
+| Tagged with correct sense    |  32,967 |
+| Accuracy                     |  29.37% |
+| Accurary (top 3)             |  58.74% |
+
 
