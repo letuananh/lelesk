@@ -329,12 +329,11 @@ class WordNetSQL:
 '''
 Given a sentence as a raw text string, perform tokenization, lemmatization
 '''
-def prepare_data(sentence_text):
+def prepare_data(res, sentence_text):
 	# Tokenization
 	tokens = nltk.word_tokenize(sentence_text)
 	# Lemmatization
-	wnl = WordNetLemmatizer()
-	tokens = [ wnl.lemmatize(x) for x in tokens] + tokens
+	tokens = [ res.lemmatize(x) for x in tokens] + tokens
 	return tokens
 
 class GlossTokens:
@@ -366,8 +365,10 @@ class WSDCandidate:
 		self.sense = sense #SenseInfo
 		self.tokens = []
 
+
+
 def get_sense_candidates(res, word):
-	lemmatized_word = res.wnl.lemmatize(word)
+	lemmatized_word = res.lemmatize(word)
 	senses = res.wnsql.get_all_senses(lemmatized_word)
 	candidates = []
 	# sc = len(senses)
@@ -417,13 +418,20 @@ class WSDResources:
 		self.sscol = WNGlossTag.build_lelesk_data(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=False)
 		self.wnsql = WordNetSQL.get_default()
 		self.wnl = WordNetLemmatizer()
+		self.lemmatize_cache = dict()
+
+	def lemmatize(self, word):
+		if not self.lemmatize_cache.has_key(word):
+			self.lemmatize_cache[word] = self.wnl.lemmatize(word)
+		return self.lemmatize_cache[word]
 
 	@staticmethod
 	def singleton():
 		if WSDResources.__singleton_instance == None:
 			WSDResources.__singleton_instance = WSDResources()
 		return WSDResources.__singleton_instance
-		
+	
+candidates_cache=dict()	
 ''' 
 Perform Word-sense disambiguation with extended simplified LESK and 
 annotated WordNet 3.0
@@ -433,13 +441,15 @@ def lelesk_wsd(word, context, res=None, verbose=False):
 	if res==None:
 		res = WSDResources.singleton()
 	#1. Retrieve candidates for the given word
-	candidates = get_sense_candidates(res, word)
+	if not candidates_cache.has_key(word):
+		candidates_cache[word] = get_sense_candidates(res, word)
+	candidates = candidates_cache[word]
 	#2. Calculate overlap between the context and each given word
 	context_set = set(context)
 	if verbose: print(context_set)
 	scores = []
 	for candidate in candidates:
-		candidate_set = set([ res.wnl.lemmatize(x) for x in candidate.tokens] + candidate.tokens)
+		candidate_set = set([ res.lemmatize(x) for x in candidate.tokens] + candidate.tokens)
 		if verbose: print(candidate_set)
 		score = len(context_set.intersection(candidate_set))
 		scores.append([candidate, score])
@@ -514,7 +524,7 @@ def test_semcor(file_name, verbose=True):
 			# sentence_text = parts[1].strip()
 			# Perform WSD on given word & sentence
 			t.start()
-			context = prepare_data(sentence_text)
+			context = prepare_data(res, sentence_text)
 			if verbose:
 				print ("WSD for the word: %s" % word)
 				print ("Context         : %s" % sentence_text)
@@ -582,7 +592,7 @@ def batch_wsd(file_loc):
 			sentence_text = parts[1].strip()
 			# Perform WSD on given word & sentence
 			t.start()
-			context = prepare_data(sentence_text)
+			context = prepare_data(res, sentence_text)
 			print ("WSD for the word: %s" % word)
 			print ("Context: %s" % sentence_text)
 			print ("Context tokens: %s" % set(context))
@@ -604,7 +614,7 @@ def test_wsd():
 	t.end('Needed resources have been loaded')
 	for sentence_text in sentence_texts:
 		t.start()
-		context = prepare_data(sentence_text)
+		context = prepare_data(res, sentence_text)
 		print ("WSD for the word: %s" % word)
 		print ("Context: %s" % context)
 		scores = lelesk_wsd(word, context)
