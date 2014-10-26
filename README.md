@@ -36,6 +36,9 @@ bash test.sh
 ```
 
 #RESULT
+
+On a decent PC with quadcore i7 and 4 GB RAM, it takes ~30 mins to process the whole Semcor test data. This is the result you should be able to get with the latest version:
+
 | Information                  |    Stat |
 |:-----------------------------|--------:|
 | Sentence count               |  37,176 |
