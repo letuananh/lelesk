@@ -2,3 +2,8 @@
 *.pyc
 debug.txt
 sample.out.txt
+bs4/
+data/
+lelesk.model.dat
+nohup.out
+semcor_wn30.out.txt
