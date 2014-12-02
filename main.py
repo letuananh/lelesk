@@ -32,8 +32,8 @@ import xml.etree.ElementTree as ET
 import re
 from nltk.corpus import stopwords
 from operator import itemgetter
-from .le_utile import *
-from .wnglosstag import *
+from lelesk.le_utile import *
+from lelesk.wnglosstag import *
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
