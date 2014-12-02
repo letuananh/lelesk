@@ -25,7 +25,7 @@ from lxml import etree
 from collections import namedtuple
 import os
 import sys
-from le_utile import *
+from .le_utile import *
 import pickle
 
 class SynsetCollection:
