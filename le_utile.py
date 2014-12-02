@@ -25,10 +25,10 @@ import codecs
 import sys
 
 def jilog(msg):
-	sys.stderr.write((u"%s" % unicode(msg)).encode("ascii","ignore"))
+	sys.stderr.write(("%s" % str(msg)).encode("ascii","ignore"))
 	try:
 		with codecs.open("debug.txt", "a", encoding='utf-8') as logfile:
-			logfile.write(u"%s\n" % unicode(msg))
+			logfile.write("%s\n" % str(msg))
 	except Exception as ex:
 		sys.stderr.write(str(ex))
 		pass
@@ -40,7 +40,7 @@ class Timer:
 		self.end_time = time.time()
 	def start(self, task_note=''):
 		if task_note:
-			jilog(u"[%s]\n" % (unicode(task_note),))
+			jilog("[%s]\n" % (str(task_note),))
 		self.start_time = time.time()
 		return self
 			
@@ -50,7 +50,7 @@ class Timer:
 	def __str__(self):
 		return "Execution time: %.2f sec(s)" % (self.end_time - self.start_time)
 	def log(self, task_note = ''):
-		jilog(u"%s - Note=[%s]\n" % (self, unicode(task_note)))
+		jilog("%s - Note=[%s]\n" % (self, str(task_note)))
 		return self
 	def end(self, task_note=''):
 			self.stop().log(task_note)
@@ -60,7 +60,7 @@ class Counter:
 		self.count_map = {}
 	
 	def __getitem__(self, key):
-		if not self.count_map.has_key(key):
+		if key not in self.count_map:
 			self.count_map[key] = 0
 		return self.count_map[key]
 	
@@ -71,8 +71,8 @@ class Counter:
 		self[key] += 1
 	
 	def summarise(self):
-		for k in self.count_map.keys():
-			print("%s: %d" % (k, self.count_map[k]))
+		for k in list(self.count_map.keys()):
+			print(("%s: %d" % (k, self.count_map[k])))
 
 class StringTool:
 	@staticmethod
@@ -81,7 +81,7 @@ class StringTool:
 	
 	@staticmethod
 	def to_str(a_str):
-		return unicode(a_str) if a_str else ''
+		return str(a_str) if a_str else ''
 
 def main():
 	print("This is an utility module, not an application.")
