@@ -501,6 +501,7 @@ def test_semcor(file_name, verbose=True):
 	
 	c = Counter()
 	sentence_count = len(lines)
+	fh = FileHub()
 	for line in lines:
 		c.count('sentence')
 		#if c['sentence'] > 100:
@@ -542,8 +543,10 @@ def test_semcor(file_name, verbose=True):
 					c.count('Word (correct)')
 				else:
 					c.count('Word (wrong)')
+					fh.writeline('wrongsense', res.lemmatize(word))
 			else:
 				c.count('Word (no sense)')
+				fh.writeline('nosense', res.lemmatize(word))
 			
 			if verbose:
 				print ("Top 3 scores")
