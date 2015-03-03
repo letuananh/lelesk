@@ -32,8 +32,8 @@ import xml.etree.ElementTree as ET
 import re
 from nltk.corpus import stopwords
 from operator import itemgetter
-from le_utile import *
-from wnglosstag import *
+from lelesk.le_utile import *
+from lelesk.wnglosstag import *
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
@@ -47,7 +47,7 @@ class XMLCache:
 
 	@staticmethod
 	def parse(file_path):
-		if not XMLCache.cache.has_key(file_path):
+		if file_path not in XMLCache.cache:
 				XMLCache.cache[file_path] = ET.parse(file_path).getroot()
 		return XMLCache.cache[file_path]
 
@@ -60,10 +60,10 @@ class XMLCache:
 					fullpath = os.path.join(root, filename)
 					XMLCache.parse(fullpath)
 					if verbose:
-						print('Caching file: %s' % fullpath)
+						print(('Caching file: %s' % fullpath))
 				# print filename
 				fcount += 1
-		print ("Found %s XML files" % fcount)
+		print(("Found %s XML files" % fcount))
 
 class SenseGloss:
 	def __init__(self, sid, sfrom, sto, stype):
@@ -77,7 +77,7 @@ class SenseGloss:
 		return "Sense: %s | from-to: [%s-%s] | type: %s" % (
 		self.sid, self.sfrom, self.sto, self.stype)
 
-SenseInfo = namedtuple('SenseInfo', ['pos', 'synsetid', 'sensekey'])
+#SenseInfo = namedtuple('SenseInfo', ['pos', 'synsetid', 'sensekey'])
 
 class SenseInfo:
 	def __init__(self, pos, synsetid, sensekey, wordid='', gloss=''):
@@ -89,6 +89,10 @@ class SenseInfo:
 	
 	def get_full_sid(self):
 		return self.pos + str(self.sid)[1:]
+		
+	def __repr__(self):
+		return str(self)
+		
 	def __str__(self):
 		return "SenseInfo: pos:%s | synsetid:%s | sensekey:%s" % (self.pos, self.sid, self.sk)
 	
@@ -136,7 +140,7 @@ class WordNetSQL:
 	
 	sk_cache = dict()
 	def get_senseinfo_by_sk(self, sk):
-		if WordNetSQL.sk_cache.has_key(sk):
+		if sk in WordNetSQL.sk_cache:
 			return WordNetSQL.sk_cache[sk]
 		conn = sqlite3.connect(WORDNET_30_PATH)
 		c = conn.cursor()
@@ -161,7 +165,7 @@ class WordNetSQL:
 	
 	hypehypo_cache=dict()	
 	def get_hypehypo(self, sid):
-		if WordNetSQL.hypehypo_cache.has_key(sid):
+		if sid in WordNetSQL.hypehypo_cache:
 			return WordNetSQL.hypehypo_cache[sid]
 		query = '''SELECT linkid, dpos, dsynsetid, dsensekey, dwordid
 					FROM sensesXsemlinksXsenses 
@@ -183,7 +187,7 @@ class WordNetSQL:
 		c = conn.cursor()
 		result = c.execute(query).fetchall()
 		for (linkid, ssynsetid, dpos, dsynsetid, dsensekey, dwordid) in result:
-			if not WordNetSQL.hypehypo_cache.has_key(ssynsetid):
+			if ssynsetid not in WordNetSQL.hypehypo_cache:
 					 WordNetSQL.hypehypo_cache[ssynsetid] = []
 			WordNetSQL.hypehypo_cache[ssynsetid].append(SenseInfo(dpos, dsynsetid, dsensekey, dwordid))
 		conn.close()
@@ -198,7 +202,7 @@ class WordNetSQL:
 			wordids = [ sense.wordid for sense in senses ]
 			need_to_find = []
 			for wordid in wordids:
-				if WordNetSQL.word_cache.has_key(wordid):
+				if wordid in WordNetSQL.word_cache:
 					lemmas.append(WordNetSQL.word_cache[wordid])
 				else:
 					need_to_find.append(str(wordid))
@@ -223,13 +227,93 @@ class WordNetSQL:
 				WordNetSQL.word_cache[wordid] = lemma
 		conn.close()
 
+	sense_map_cache=None
+	def all_senses(self):
+		if WordNetSQL.sense_map_cache:
+			return WordNetSQL.sense_map_cache
+		_query = """SELECT lemma, pos, synsetid, sensekey, definition 
+								FROM wordsXsensesXsynsets;"""
+		conn = self.get_conn()
+		c = conn.cursor()
+		result = c.execute(_query).fetchall()
+		# Build lemma map
+		lemma_map = {}
+		senses = []
+		for (lemma, pos, synsetid, sensekey, definition) in result:
+			# ss_type
+			# One character code indicating the synset type:
+			# n NOUN
+			# v VERB
+			# a ADJECTIVE
+			# s ADJECTIVE SATELLITE
+			# r ADVERB
+			if pos == 's' or pos == 'r':
+				pos = 'a'
+			sinfo = SenseInfo(pos, synsetid, sensekey, '', definition)
+			# add to map
+			if lemma not in lemma_map:
+				lemma_map[lemma] = []
+			lemma_map[lemma].append(sinfo)
+		# close connection & return results
+		conn.close()
+		WordNetSQL.sense_map_cache=lemma_map
+		return lemma_map
+
+	def get_conn(self):
+		conn = sqlite3.connect(WORDNET_30_PATH)
+		return conn
+
+	lemma_list_cache = dict()
+	def search_senses(self, lemma_list, pos=None, a_conn=None):
+		if len(lemma_list) == 0:
+			return list()
+		
+		CACHE_JOIN_TOKEN='|\t'*12
+		cache_key=CACHE_JOIN_TOKEN.join(lemma_list)
+		# caching method
+		if cache_key in WordNetSQL.lemma_list_cache:
+			return WordNetSQL.lemma_list_cache[cache_key]
+		
+		# Build query
+		_query = """SELECT pos, synsetid, sensekey, definition 
+								FROM wordsXsensesXsynsets
+								WHERE (%s) """ % 'or '.join(["lemma=?"] * len(lemma_list))
+		_args = list(lemma_list)
+		if pos:
+			_query += " and pos = ?";
+			_args.append(pos)
+		
+		# Query
+		if a_conn:
+			conn = a_conn
+		else:
+			conn = sqlite3.connect(WORDNET_30_PATH)
+		c = conn.cursor()
+		result = c.execute(_query, _args).fetchall()
+
+		# Build results
+		senses = []
+		for (pos, synsetid, sensekey, definition) in result:
+			senses.append(SenseInfo(pos, synsetid, sensekey, '', definition))
+		if not a_conn:
+			conn.close()
+		
+		# store to cache
+		WordNetSQL.lemma_list_cache[cache_key] = senses
+		return senses
+	
 	sense_cache = dict()
-	def get_all_senses(self, lemma):
-		if WordNetSQL.sense_cache.has_key(lemma):
+	def get_all_senses(self, lemma, pos=None):
+		if lemma in WordNetSQL.sense_cache:
 			return WordNetSQL.sense_cache[lemma]
 		conn = sqlite3.connect(WORDNET_30_PATH)
 		c = conn.cursor()
-		result = c.execute("""SELECT pos, synsetid, sensekey, definition 
+		if pos:
+			result = c.execute("""SELECT pos, synsetid, sensekey, definition 
+								FROM wordsXsensesXsynsets
+								WHERE lemma = ? and pos = ?;""", (lemma, pos)).fetchall()
+		else:
+			result = c.execute("""SELECT pos, synsetid, sensekey, definition 
 								FROM wordsXsensesXsynsets
 								WHERE lemma = ?;""", (lemma,)).fetchall()
 		senses = []
@@ -238,13 +322,14 @@ class WordNetSQL:
 		conn.close()
 		WordNetSQL.sense_cache[lemma] = senses
 		return senses
+		
 	def cache_all_sense_by_lemma(self):
 		conn = sqlite3.connect(WORDNET_30_PATH)
 		c = conn.cursor()
 		result = c.execute("""SELECT lemma, pos, synsetid, sensekey, definition FROM wordsXsensesXsynsets;""").fetchall()
 
 		for (lemma, pos, synsetid, sensekey, definition) in result:
-			if not WordNetSQL.sense_cache.has_key(lemma):
+			if lemma not in WordNetSQL.sense_cache:
 				WordNetSQL.sense_cache[lemma] = []
 			WordNetSQL.sense_cache[lemma].append(SenseInfo(pos, synsetid, sensekey, '', definition))
 		conn.close()
@@ -255,7 +340,7 @@ class WordNetSQL:
 	
 	gloss_cache = dict()
 	def get_gloss_by_id(self, sid):
-		if WordNetSQL.gloss_cache.has_key(sid):
+		if sid in WordNetSQL.gloss_cache:
 			return WordNetSQL.gloss_cache[sid]
 		if not sid:
 			return None
@@ -303,14 +388,14 @@ class WordNetSQL:
 	# Search a synset by ID
 	def search_by_id(self, synset_id):
 		#print 'searching %s' % synset_id
-		if self.sid_index.has_key(synset_id):
+		if synset_id in self.sid_index:
 			return self.sid_index[synset_id]
 		else:
 			return None
 	
 	# Search a synset by sensekey
 	def search_by_sk(self, wnsk):
-		if self.sk_index.has_key(wnsk):
+		if wnsk in self.sk_index:
 			return self.sk_index[wnsk]
 		else:
 			return 'N/A'
@@ -365,8 +450,6 @@ class WSDCandidate:
 		self.sense = sense #SenseInfo
 		self.tokens = []
 
-
-
 def get_sense_candidates(res, word):
 	lemmatized_word = res.lemmatize(word)
 	senses = res.wnsql.get_all_senses(lemmatized_word)
@@ -402,7 +485,7 @@ def get_sense_candidates(res, word):
 				candidate.tokens += more_tokens # Hype & hypo of tagged tokens
 				#t2.stop().log('Finished hypehypo')
 		#print "-" * 20
-		candidate.tokens = filter(None, candidate.tokens)
+		candidate.tokens = [_f for _f in candidate.tokens if _f]
 		#print "Final: %s" % candidate.tokens
 		candidates.append(candidate)
 		# t.stop().log('Finished build a candidate')
@@ -412,23 +495,26 @@ def get_sense_candidates(res, word):
 class WSDResources:
 	
 	__singleton_instance = None
+	wnsql=None
+	wnl=None
 	
-	def __init__(self):
+	def __init__(self, lightweight=False):
 		# self.sscol = WNGlossTag.read_all_glosstag(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=True)
-		self.sscol = WNGlossTag.build_lelesk_data(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=False)
+		if not lightweight:
+			self.sscol = WNGlossTag.build_lelesk_data(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=False)
 		self.wnsql = WordNetSQL.get_default()
 		self.wnl = WordNetLemmatizer()
 		self.lemmatize_cache = dict()
 
 	def lemmatize(self, word):
-		if not self.lemmatize_cache.has_key(word):
+		if word not in self.lemmatize_cache:
 			self.lemmatize_cache[word] = self.wnl.lemmatize(word)
 		return self.lemmatize_cache[word]
 
 	@staticmethod
-	def singleton():
+	def singleton(lightweight=False):
 		if WSDResources.__singleton_instance == None:
-			WSDResources.__singleton_instance = WSDResources()
+			WSDResources.__singleton_instance = WSDResources(lightweight)
 		return WSDResources.__singleton_instance
 	
 candidates_cache=dict()	
@@ -441,7 +527,7 @@ def lelesk_wsd(word, context, res=None, verbose=False):
 	if res==None:
 		res = WSDResources.singleton()
 	#1. Retrieve candidates for the given word
-	if not candidates_cache.has_key(word):
+	if word not in candidates_cache:
 		candidates_cache[word] = get_sense_candidates(res, word)
 	candidates = candidates_cache[word]
 	#2. Calculate overlap between the context and each given word
@@ -462,7 +548,7 @@ def lelesk_wsd(word, context, res=None, verbose=False):
 #-----------------------------------------------------------------------
 def main():	
 	testset = { 'test' : test_wsd, 'optimize' : optimize, 'candidates' : test_candidates, 'batch' : batch_wsd, 'semcor' : test_semcor }
-	if len(sys.argv) < 2 or sys.argv[1] not in testset.keys():
+	if len(sys.argv) < 2 or sys.argv[1] not in list(testset.keys()):
 		print_usage()
 	elif len(sys.argv) == 3 and sys.argv[1] == 'candidates':
 		testset[sys.argv[1]](sys.argv[2])
@@ -475,15 +561,14 @@ def main():
 	pass
 
 def print_usage():
-	print('''Usage:
+	print(('''Usage:
 	%s: Show this usage
 	%s test: Run bank test
 	%s candidates your_chosen_word: Find candidates for a given word
 	%s batch path_to_your_file: Perform WSD on a batch file
 	%s batch path_to_semcor_test_file: Perform WSD on Semcor (e.g. semcor_wn30.txt)
-	''' % ((sys.argv[0],) * 5))
+	''' % ((sys.argv[0],) * 5)))
 	pass
-
 
 Token = namedtuple('Token', ['text', 'sk'])
 def test_semcor(file_name, verbose=True):
@@ -491,13 +576,13 @@ def test_semcor(file_name, verbose=True):
 	total_timer = Timer()
 	total_timer.start()
 	lines = open(file_name).readlines()
-	print("Found %s sentences in %s" % (len(lines), file_name))
+	print(("Found %s sentences in %s" % (len(lines), file_name)))
 	
 	t.start('Loading needed resource ...')
 	res = WSDResources.singleton()
 	t.end('Needed resources have been loaded')
 	
-	print ('-' * 80)
+	print(('-' * 80))
 	
 	c = Counter()
 	sentence_count = len(lines)
@@ -527,10 +612,10 @@ def test_semcor(file_name, verbose=True):
 			t.start()
 			context = prepare_data(res, sentence_text)
 			if verbose:
-				print ("WSD for the word: %s" % word)
-				print ("Context         : %s" % sentence_text)
-				print ("Context tokens  : %s" % set(context))
-				print ("Expected sense  : %s" % test_item.sk) 
+				print(("WSD for the word: %s" % word))
+				print(("Context         : %s" % sentence_text))
+				print(("Context tokens  : %s" % set(context)))
+				print(("Expected sense  : %s" % test_item.sk)) 
 			scores = lelesk_wsd(word, context)
 			if scores and len(scores) > 0:
 				correct_word = False
@@ -565,11 +650,11 @@ def test_semcor(file_name, verbose=True):
 				if test_item.sk in sks:
 					c.count('top3') 
 				if verbose:
-					print ("Sense: %s - Sensekey: %s- Score: %s - Definition: %s" % (sid, sks, score[1], score[0].sense.gloss))
+					print(("Sense: %s - Sensekey: %s- Score: %s - Definition: %s" % (sid, sks, score[1], score[0].sense.gloss)))
 			t.end('Sentence (#%s/%s) | Analysed word ["%s"] on sentence: %s' % (c['sentence'], sentence_count, word, sentence_text))
-			print ('-' * 80)
+			print(('-' * 80))
 	jilog("Batch job finished")
-	print('-' * 80)
+	print(('-' * 80))
 	c.summarise()
 	total_timer.end("Total runtime")
 	print('Done!')
@@ -586,7 +671,7 @@ def batch_wsd(file_loc):
 	WSDResources.singleton()
 	t.end('Needed resources have been loaded')
 	
-	print ('-' * 80)
+	print(('-' * 80))
 		
 	for line in lines:
 		parts = line.split('\t')
@@ -596,15 +681,15 @@ def batch_wsd(file_loc):
 			# Perform WSD on given word & sentence
 			t.start()
 			context = prepare_data(res, sentence_text)
-			print ("WSD for the word: %s" % word)
-			print ("Context: %s" % sentence_text)
-			print ("Context tokens: %s" % set(context))
+			print(("WSD for the word: %s" % word))
+			print(("Context: %s" % sentence_text))
+			print(("Context tokens: %s" % set(context)))
 			scores = lelesk_wsd(word, context)
 			print ("Top 3 scores")
 			for score in scores[:3]:
-				print ("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss))
+				print(("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss)))
 			t.end('Analysed word ["%s"] on sentence: %s' % (word, sentence_text))
-			print ('-' * 80)
+			print(('-' * 80))
 	jilog("Batch job finished")
 	print('Done!')
 
@@ -618,12 +703,12 @@ def test_wsd():
 	for sentence_text in sentence_texts:
 		t.start()
 		context = prepare_data(res, sentence_text)
-		print ("WSD for the word: %s" % word)
-		print ("Context: %s" % context)
+		print(("WSD for the word: %s" % word))
+		print(("Context: %s" % context))
 		scores = lelesk_wsd(word, context)
 		print ("Top 3 scores")
 		for score in scores[:3]:
-			print ("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss))
+			print(("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss)))
 		t.end('Analysed sentence: %s' % sentence_text)
 
 def optimize():
@@ -653,7 +738,7 @@ def optimize():
 	# Profiling select senses from database
 	t.start()
 	senses = res.wnsql.get_all_senses('table')
-	print len(senses)
+	print(len(senses))
 	t.stop().log('Test select all senses')
 
 	# Profiling get by sk
@@ -661,21 +746,21 @@ def optimize():
 	sk = 'side%1:15:01::'
 	file_loc = res.wnsql.search_by_sk(sk)
 	sid = res.wnsql.get_senseinfo_by_sk(sk).get_full_sid()
-	print ("Looking at %s - File loc: %s - SID: %s" % (sk,file_loc, sid))
+	print(("Looking at %s - File loc: %s - SID: %s" % (sk,file_loc, sid)))
 	a_sense = res.wnsql.get_gloss_by_sk(sk)
 	dump_sense(a_sense)
 	t.stop().log('Profiling select by sensekey')
 
 	# Profiling loading
 	t.start()
-	print res.wnsql.search_by_id('a00002527')
+	print(res.wnsql.search_by_id('a00002527'))
 	gloss = res.wnsql.get_gloss_by_id('a00002527')
 	dump_sense(gloss)
 	t.stop().log('Test search gloss')
 
 	# Profiling loading again
 	t.start()
-	print res.wnsql.search_by_id('a00002527')
+	print(res.wnsql.search_by_id('a00002527'))
 	gloss = res.wnsql.get_gloss_by_id('a00002527')
 	dump_sense(gloss)
 	t.stop().log('Test search gloss again')
@@ -698,44 +783,44 @@ def test_candidates(word):
 	res = WSDResources.singleton()
 	if not word:
 		word = 'table'
-	print ('Retrieving candidates for the word ["%s"]' % word)
+	print(('Retrieving candidates for the word ["%s"]' % word))
 	candidates = get_sense_candidates(res, word)
 	if candidates:
-		print("Candidates count: %s" % len(candidates))
+		print(("Candidates count: %s" % len(candidates)))
 		for candidate in candidates:
-			print "-" * 80
-			print str(candidate.sense)
-			print "-" * 80
-			print candidate.tokens
+			print("-" * 80)
+			print(str(candidate.sense))
+			print("-" * 80)
+			print(candidate.tokens)
 	pass
 	
 def dump_sense(a_sense, show_tagged_only=True):
 	if a_sense:
-		print a_sense
+		print(a_sense)
 		for token in a_sense.tokens:
 			if not show_tagged_only or token.sk:
-				print ('\t' + str(token))
+				print(('\t' + str(token)))
 
 def test_wordnetgloss():
 	wng = WordNetSQL.get_default()
-	print wng.search_by_id('a00002527')
+	print(wng.search_by_id('a00002527'))
 	gloss = wng.get_gloss_by_id('a00002527')
 	dump_sense(gloss)
 	#
-	print("-" * 80)
+	print(("-" * 80))
 	#
 	sk = 'side%1:15:01::'
 	file_loc = wng.search_by_sk(sk)
 	sid = wng.get_senseinfo_by_sk(sk).get_full_sid()
-	print ("Looking at %s - File loc: %s - SID: %s" % (sk,file_loc, sid))
+	print(("Looking at %s - File loc: %s - SID: %s" % (sk,file_loc, sid)))
 	a_sense = wng.get_gloss_by_sk(sk)
 	dump_sense(a_sense)
 	#
-	print('-' * 80)
+	print(('-' * 80))
 	# 
 	senses = wng.get_all_senses('side')
 	for sense in senses:
-		print sense
+		print(sense)
 	pass	
 
 if __name__ == "__main__":
