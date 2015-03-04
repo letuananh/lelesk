@@ -37,6 +37,7 @@ from lelesk.wnglosstag import *
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
+#WORDNET_30_PATH = os.path.expanduser('~/wk/cldata/ntumc/wn-ntumc.db')
 WORDNET_30_PATH = os.path.expanduser('~/wordnet/sqlite-30.db')
 WORDNET_30_GLOSSTAG_PATH = os.path.expanduser('~/wordnet/glosstag')
 #-----------------------------------------------------------------------
@@ -80,12 +81,14 @@ class SenseGloss:
 #SenseInfo = namedtuple('SenseInfo', ['pos', 'synsetid', 'sensekey'])
 
 class SenseInfo:
-	def __init__(self, pos, synsetid, sensekey, wordid='', gloss=''):
+	def __init__(self, pos, synsetid, sensekey, wordid='', gloss='', tagcount=0, lemma=''):
 		self.pos = pos
 		self.sid = synsetid
 		self.sk = sensekey
 		self.wordid = wordid
 		self.gloss = gloss
+		self.tagcount = tagcount
+		self.lemma = lemma
 	
 	def get_full_sid(self):
 		return self.pos + str(self.sid)[1:]
@@ -94,7 +97,7 @@ class SenseInfo:
 		return str(self)
 		
 	def __str__(self):
-		return "SenseInfo: pos:%s | synsetid:%s | sensekey:%s" % (self.pos, self.sid, self.sk)
+		return "SenseInfo: pos:%s | synsetid:%s | sensekey:%s | freq: %s" % (self.pos, self.sid, self.sk, self.tagcount)
 	
 class GlossInfo:
 	def __init__(self, sid, sfrom, sto, stype, lemma, pos, tag, text, sk):
@@ -228,18 +231,18 @@ class WordNetSQL:
 		conn.close()
 
 	sense_map_cache=None
-	def all_senses(self):
+	def all_senses(self, keep_pos=False):
 		if WordNetSQL.sense_map_cache:
 			return WordNetSQL.sense_map_cache
-		_query = """SELECT lemma, pos, synsetid, sensekey, definition 
-								FROM wordsXsensesXsynsets;"""
+		_query = """SELECT lemma, pos, synsetid, sensekey, definition, tagcount
+								FROM wordsXsensesXsynsets ORDER BY lemma, pos, tagcount DESC;"""
 		conn = self.get_conn()
 		c = conn.cursor()
 		result = c.execute(_query).fetchall()
 		# Build lemma map
 		lemma_map = {}
 		senses = []
-		for (lemma, pos, synsetid, sensekey, definition) in result:
+		for (lemma, pos, synsetid, sensekey, definition, tagcount) in result:
 			# ss_type
 			# One character code indicating the synset type:
 			# n NOUN
@@ -247,9 +250,9 @@ class WordNetSQL:
 			# a ADJECTIVE
 			# s ADJECTIVE SATELLITE
 			# r ADVERB
-			if pos == 's' or pos == 'r':
+			if not keep_pos and pos == 's' or pos == 'r':
 				pos = 'a'
-			sinfo = SenseInfo(pos, synsetid, sensekey, '', definition)
+			sinfo = SenseInfo(pos, synsetid, sensekey, '', definition, tagcount, lemma)
 			# add to map
 			if lemma not in lemma_map:
 				lemma_map[lemma] = []
@@ -274,8 +277,8 @@ class WordNetSQL:
 		if cache_key in WordNetSQL.lemma_list_cache:
 			return WordNetSQL.lemma_list_cache[cache_key]
 		
-		# Build query
-		_query = """SELECT pos, synsetid, sensekey, definition 
+		# Build query lemma, pos, synsetid, sensekey, definition, tagcount
+		_query = """SELECT lemma, pos, synsetid, sensekey, definition, tagcount 
 								FROM wordsXsensesXsynsets
 								WHERE (%s) """ % 'or '.join(["lemma=?"] * len(lemma_list))
 		_args = list(lemma_list)
@@ -293,8 +296,8 @@ class WordNetSQL:
 
 		# Build results
 		senses = []
-		for (pos, synsetid, sensekey, definition) in result:
-			senses.append(SenseInfo(pos, synsetid, sensekey, '', definition))
+		for (lemma, pos, synsetid, sensekey, definition, tagcount) in result:
+			senses.append(SenseInfo(pos, synsetid, sensekey, '', definition, tagcount, lemma))
 		if not a_conn:
 			conn.close()
 		
