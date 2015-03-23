@@ -25,7 +25,7 @@ from lxml import etree
 from collections import namedtuple
 import os
 import sys
-from lelesk.le_utile import *
+from chirptext.leutile import *
 import pickle
 
 class SynsetCollection:
@@ -353,18 +353,18 @@ def main():
 		print("To be expaned: %s" % (to_be_expanded,))
 		
 	
-	t = Timer()
-	t.start('Storing data to file...')
-	pickle.dump(all_synsets, open('lelesk.model.dat', 'wb'))
-	t.end('stored into file')
+	#t = Timer()
+	#t.start('Storing data to file...')
+	#pickle.dump(all_synsets, open('lelesk.model.dat', 'wb'))
+	#t.end('stored into file')
 	
 	# clear memory
-	all_synsets = None
+	#all_synsets = None
 	
-	t.start('start to load again')
-	all_ss = pickle.load(open('lelesk.model.dat', 'rb'))
-	t.end('Done!')
-	print("Loaded %s synsets from file" % (len(all_ss.synsets),))
+	#t.start('start to load again')
+	#all_ss = pickle.load(open('lelesk.model.dat', 'rb'))
+	#t.end('Done!')
+	#print("Loaded %s synsets from file" % (len(all_ss.synsets),))
 	# [TODO] Using pickle doesn't help at all, I'll take a look at this problem later
 	raw_input("Press any key to continue ...")
 		
