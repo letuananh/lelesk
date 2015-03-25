@@ -631,10 +631,10 @@ def test_semcor(file_name, verbose=True):
 					c.count('Word (correct)')
 				else:
 					c.count('Word (wrong)')
-					fh.writeline('wrongsense', res.lemmatize(word))
+					fh.writeline('data/wrongsense', res.lemmatize(word))
 			else:
 				c.count('Word (no sense)')
-				fh.writeline('nosense', res.lemmatize(word))
+				fh.writeline('data/nosense', res.lemmatize(word))
 			
 			if verbose:
 				print ("Top 3 scores")
@@ -671,7 +671,7 @@ def batch_wsd(file_loc):
 	t.end("File has been loaded")
 	
 	t.start('Loading needed resource ...')
-	WSDResources.singleton()
+	res = WSDResources.singleton()
 	t.end('Needed resources have been loaded')
 	
 	print(('-' * 80))
