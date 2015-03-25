@@ -1,9 +1,0 @@
-bank	I went to the bank to deposit money.
-bank	The river bank is full of dead fish.
-bass	I went fishing for some sea bass.
-bass	The bass line of the song is too weak.
-table	There are many toys and stuffs on my wood table in the living room.
-table	I have to create three tables in this monthly report.
-table	I made the whole table laughed out loud.
-fly	There are many flies in the kitchen.
-fly	I flew to New York city last week.

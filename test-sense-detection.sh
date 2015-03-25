@@ -1,3 +1,3 @@
 #!/usr/bin/sh
 
-python main.py batch sample.txt > sample.out.txt
+python main.py batch data/sample.txt > data/sample.out.txt
