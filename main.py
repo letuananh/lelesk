@@ -446,6 +446,8 @@ class GlossTokens:
 
 class WSDCandidate:
 	def __init__(self, sense=None):
+		'''Data Transfer Object which holds information about a sense and tokens of its definition & 
+		'''
 		self.sense = sense #SenseInfo
 		self.tokens = []
 
@@ -473,25 +475,6 @@ class WSDResources:
 		if WSDResources.__singleton_instance == None:
 			WSDResources.__singleton_instance = WSDResources(lightweight)
 		return WSDResources.__singleton_instance
-
-def get_gloss_token(res, sk):
-	tokens = []
-	ss_gloss = res.sscol.by_sk(sk)
-	
-	gt = GlossTokens()
-	senseinfo = res.wnsql.get_senseinfo_by_sk(sk)
-	if not senseinfo:
-		return gt
-	sid = senseinfo.get_full_sid()
-	gloss = wng.get_gloss_by_id(sid)
-	if gloss:
-		for token in gloss.tokens:
-			# remove stopword & punctuations
-			if reword.match(token.text) and token.text not in stopwords.words('english'):
-				gt.tokens.append(token.text)
-			if token.sk:
-				gt.sk.append(token.sk)
-	return gt
 
 class WSDToolKit:
 	def __init__(self, verbose=False, lightweight=False):
@@ -836,6 +819,9 @@ def main():
 		batch -i PATH_TO_FILE: Perform WSD on a batch file
 		batch -i PATH_TO_SEMCOR_TEST_FILE: Perform WSD on Semcor (e.g. semcor_wn30.txt)
 	'''
+	# Fix configuration
+	JILOG_LOCATION = 'data/debug.txt'
+	#
 	parser = argparse.ArgumentParser(description="A library for performing Word Sense Disambiguation using Python.")
 	parser.add_argument('command', choices=['test', 'optimize', 'candidates', 'batch', 'semcor'], help='Command you want to execute (test/optimize/candidates/batch/semcor).')
 	group = parser.add_mutually_exclusive_group()
