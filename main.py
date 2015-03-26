@@ -1,18 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
+'''
+A library for performing Word Sense Disambiguation using Python
+Latest version can be found at https://github.com/letuananh/lelesk
 
+@author: Le Tuan Anh <tuananh.ke@gmail.com>
+'''
+
+# Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
+#
 #Permission is hereby granted, free of charge, to any person obtaining a copy
 #of this software and associated documentation files (the "Software"), to deal
 #in the Software without restriction, including without limitation the rights
 #to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 #copies of the Software, and to permit persons to whom the Software is
 #furnished to do so, subject to the following conditions:
-
+#
 #The above copyright notice and this permission notice shall be included in
 #all copies or substantial portions of the Software.
-
+#
 #THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 #IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 #FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -21,19 +28,32 @@
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 #THE SOFTWARE.
 
+__author__ = "Le Tuan Anh <tuananh.ke@gmail.com>"
+__copyright__ = "Copyright 2015, lelesk"
+__credits__ = [ "Le Tuan Anh" ]
+__license__ = "MIT"
+__version__ = "0.1"
+__maintainer__ = "Le Tuan Anh"
+__email__ = "<tuananh.ke@gmail.com>"
+__status__ = "Prototype"
+
 import sys
-import nltk
-from nltk import WordNetLemmatizer
+import os.path
+import re
+import sqlite3
+import argparse
+from operator import itemgetter
 from collections import namedtuple
 from collections import defaultdict as dd
-import sqlite3
-import os.path
 import xml.etree.ElementTree as ET
-import re
+
+import nltk
+from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
-from operator import itemgetter
+
 from chirptext.leutile import *
 from wnglosstag import *
+
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
@@ -42,6 +62,8 @@ WORDNET_30_PATH = os.path.expanduser('~/wordnet/sqlite-30.db')
 WORDNET_30_GLOSSTAG_PATH = os.path.expanduser('~/wordnet/glosstag')
 #-----------------------------------------------------------------------
 reword = re.compile('\w+')
+
+Token = namedtuple('Token', ['text', 'sk'])
 
 class XMLCache:
 	cache = dict()
@@ -78,9 +100,10 @@ class SenseGloss:
 		return "Sense: %s | from-to: [%s-%s] | type: %s" % (
 		self.sid, self.sfrom, self.sto, self.stype)
 
-#SenseInfo = namedtuple('SenseInfo', ['pos', 'synsetid', 'sensekey'])
-
 class SenseInfo:
+	'''Store WordNet Sense Information (synsetID, pos, sensekey, etc.)
+	'''
+
 	def __init__(self, pos, synsetid, sensekey, wordid='', gloss='', tagcount=0, lemma=''):
 		self.pos = pos
 		self.sid = synsetid
@@ -100,6 +123,8 @@ class SenseInfo:
 		return "SenseInfo: pos:%s | synsetid:%s | sensekey:%s | freq: %s" % (self.pos, self.sid, self.sk, self.tagcount)
 	
 class GlossInfo:
+	'''
+	'''
 	def __init__(self, sid, sfrom, sto, stype, lemma, pos, tag, text, sk):
 		self.sid = sid
 		self.sfrom = sfrom
@@ -414,86 +439,15 @@ class WordNetSQL:
 			wnsql.cache_all_sensekey()
 		return wnsql
 		
-'''
-Given a sentence as a raw text string, perform tokenization, lemmatization
-'''
-def prepare_data(res, sentence_text):
-	# Tokenization
-	tokens = nltk.word_tokenize(sentence_text)
-	# Lemmatization
-	tokens = [ res.lemmatize(x) for x in tokens] + tokens
-	return tokens
-
 class GlossTokens:
 	def __init__(self):
 		self.tokens = []
 		self.sk = []
 
-def get_gloss_token(res, sk):
-	tokens = []
-	ss_gloss = res.sscol.by_sk(sk)
-	
-	gt = GlossTokens()
-	senseinfo = res.wnsql.get_senseinfo_by_sk(sk)
-	if not senseinfo:
-		return gt
-	sid = senseinfo.get_full_sid()
-	gloss = wng.get_gloss_by_id(sid)
-	if gloss:
-		for token in gloss.tokens:
-			# remove stopword & punctuations
-			if reword.match(token.text) and token.text not in stopwords.words('english'):
-				gt.tokens.append(token.text)
-			if token.sk:
-				gt.sk.append(token.sk)
-	return gt
-
 class WSDCandidate:
 	def __init__(self, sense=None):
 		self.sense = sense #SenseInfo
 		self.tokens = []
-
-def get_sense_candidates(res, word):
-	lemmatized_word = res.lemmatize(word)
-	senses = res.wnsql.get_all_senses(lemmatized_word)
-	candidates = []
-	# sc = len(senses)
-	num = 0
-	# t = Timer()
-	# t2 = Timer()
-	for sense in senses:
-		num+=1
-		# print("Processing sense %s/%s for the word [%s]" % (num, sc, word))
-		candidate = WSDCandidate(sense)
-		sk = sense.sk
-		# t.start()
-		synset_gloss = res.sscol.by_sk(sk)
-		if not synset_gloss:
-			continue
-		candidate.tokens.extend([ x.text for x in synset_gloss.def_gloss ])
-		for child_token in synset_gloss.def_gloss:
-			# t2.start() 
-			# Find gloss of each token in the gloss of the current sense
-			if res.sscol.by_sk(child_token.sk):
-				child_gloss = res.sscol.by_sk(child_token.sk)
-				candidate.tokens.extend([ x.text for x in child_gloss.def_gloss ])
-			# t2.stop().log('get child gloss')
-			# extend hypernyms & hyponyms of each token in the gloss
-			# of the current sense
-			senseinfo = res.wnsql.get_senseinfo_by_sk(child_token.sk)
-			if senseinfo:
-				# t2.start()
-				more_tokens = res.wnsql.get_hypehypo_text(senseinfo.sid)
-				# print("Extending: %s" % more_tokens)
-				candidate.tokens += more_tokens # Hype & hypo of tagged tokens
-				#t2.stop().log('Finished hypehypo')
-		#print "-" * 20
-		candidate.tokens = [_f for _f in candidate.tokens if _f]
-		#print "Final: %s" % candidate.tokens
-		candidates.append(candidate)
-		# t.stop().log('Finished build a candidate')
-	return candidates
-	pass
 
 class WSDResources:
 	
@@ -519,61 +473,127 @@ class WSDResources:
 		if WSDResources.__singleton_instance == None:
 			WSDResources.__singleton_instance = WSDResources(lightweight)
 		return WSDResources.__singleton_instance
-	
-candidates_cache=dict()	
-''' 
-Perform Word-sense disambiguation with extended simplified LESK and 
-annotated WordNet 3.0
-'''
-def lelesk_wsd(word, context, res=None, verbose=False):
-	# Preparation: Load all resources (SQLite cache, WNGlossTag, etc.)
-	if res==None:
-		res = WSDResources.singleton()
-	#1. Retrieve candidates for the given word
-	if word not in candidates_cache:
-		candidates_cache[word] = get_sense_candidates(res, word)
-	candidates = candidates_cache[word]
-	#2. Calculate overlap between the context and each given word
-	context_set = set(context)
-	if verbose: print(context_set)
-	scores = []
-	for candidate in candidates:
-		candidate_set = set([ res.lemmatize(x) for x in candidate.tokens] + candidate.tokens)
-		if verbose: print(candidate_set)
-		score = len(context_set.intersection(candidate_set))
-		scores.append([candidate, score])
-	scores.sort(key=itemgetter(1))
-	scores.reverse()
-	return scores
-	
-#-----------------------------------------------------------------------
-# Main function
-#-----------------------------------------------------------------------
-def main():	
-	testset = { 'test' : test_wsd, 'optimize' : optimize, 'candidates' : test_candidates, 'batch' : batch_wsd, 'semcor' : test_semcor }
-	if len(sys.argv) < 2 or sys.argv[1] not in list(testset.keys()):
-		print_usage()
-	elif len(sys.argv) == 3 and sys.argv[1] == 'candidates':
-		testset[sys.argv[1]](sys.argv[2])
-	elif len(sys.argv) == 3 and sys.argv[1] == 'batch':
-		testset[sys.argv[1]](sys.argv[2])
-	elif len(sys.argv) == 3 and sys.argv[1] == 'semcor':
-		testset[sys.argv[1]](sys.argv[2])
-	else:
-		testset[sys.argv[1]]()
-	pass
 
-def print_usage():
-	print(('''Usage:
-	%s: Show this usage
-	%s test: Run bank test
-	%s candidates your_chosen_word: Find candidates for a given word
-	%s batch path_to_your_file: Perform WSD on a batch file
-	%s batch path_to_semcor_test_file: Perform WSD on Semcor (e.g. semcor_wn30.txt)
-	''' % ((sys.argv[0],) * 5)))
-	pass
+def get_gloss_token(res, sk):
+	tokens = []
+	ss_gloss = res.sscol.by_sk(sk)
+	
+	gt = GlossTokens()
+	senseinfo = res.wnsql.get_senseinfo_by_sk(sk)
+	if not senseinfo:
+		return gt
+	sid = senseinfo.get_full_sid()
+	gloss = wng.get_gloss_by_id(sid)
+	if gloss:
+		for token in gloss.tokens:
+			# remove stopword & punctuations
+			if reword.match(token.text) and token.text not in stopwords.words('english'):
+				gt.tokens.append(token.text)
+			if token.sk:
+				gt.sk.append(token.sk)
+	return gt
 
-Token = namedtuple('Token', ['text', 'sk'])
+class WSDToolKit:
+	def __init__(self, verbose=False, lightweight=False):
+		self.candidates_cache=dict()	
+		self.verbose = verbose
+		t = Timer()
+		# Preparation: Load all resources (SQLite cache, WNGlossTag, etc.)
+		if self.verbose:
+			t.start('Loading needed resource ...')
+		self.res = WSDResources.singleton(lightweight)
+		if self.verbose:
+			t.end('Needed resources have been loaded')
+		pass
+
+	def get_sense_candidates(self, word):
+		'''Get WordNet sense candidates for a given word
+		'''
+		lemmatized_word = self.res.lemmatize(word)
+		senses = self.res.wnsql.get_all_senses(lemmatized_word)
+		candidates = []
+		# sc = len(senses)
+		num = 0
+		# t = Timer()
+		# t2 = Timer()
+		for sense in senses:
+			num+=1
+			# print("Processing sense %s/%s for the word [%s]" % (num, sc, word))
+			candidate = WSDCandidate(sense)
+			sk = sense.sk
+			# t.start()
+			synset_gloss = self.res.sscol.by_sk(sk)
+			if not synset_gloss:
+				continue
+			candidate.tokens.extend([ x.text for x in synset_gloss.def_gloss ])
+			for child_token in synset_gloss.def_gloss:
+				# t2.start() 
+				# Find gloss of each token in the gloss of the current sense
+				if self.res.sscol.by_sk(child_token.sk):
+					child_gloss = self.res.sscol.by_sk(child_token.sk)
+					candidate.tokens.extend([ x.text for x in child_gloss.def_gloss ])
+				# t2.stop().log('get child gloss')
+				# extend hypernyms & hyponyms of each token in the gloss
+				# of the current sense
+				senseinfo = self.res.wnsql.get_senseinfo_by_sk(child_token.sk)
+				if senseinfo:
+					# t2.start()
+					more_tokens = self.res.wnsql.get_hypehypo_text(senseinfo.sid)
+					# print("Extending: %s" % more_tokens)
+					candidate.tokens += more_tokens # Hype & hypo of tagged tokens
+					#t2.stop().log('Finished hypehypo')
+			#print "-" * 20
+			candidate.tokens = [_f for _f in candidate.tokens if _f]
+			#print "Final: %s" % candidate.tokens
+			candidates.append(candidate)
+			# t.stop().log('Finished build a candidate')
+		return candidates
+		pass
+
+	def prepare_data(self, sentence_text):
+		'''Given a sentence as a raw text string, perform tokenization, lemmatization
+		'''
+		# Tokenization
+		tokens = nltk.word_tokenize(sentence_text)
+		# Lemmatization
+		tokens = [ self.res.lemmatize(x) for x in tokens] + tokens
+		return tokens
+
+	def lelesk_wsd(self, word, sentence_text, expected_sense=''):
+		'''Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0
+		'''
+		context = self.prepare_data(sentence_text)
+		
+		#1. Retrieve candidates for the given word
+		if word not in self.candidates_cache:
+			self.candidates_cache[word] = self.get_sense_candidates(word)
+		candidates = self.candidates_cache[word]
+		#2. Calculate overlap between the context and each given word
+		context_set = set(context)
+		if self.verbose: print(context_set)
+		scores = []
+		for candidate in candidates:
+			candidate_set = set([ self.res.lemmatize(x) for x in candidate.tokens] + candidate.tokens)
+			if self.verbose: print(candidate_set)
+			score = len(context_set.intersection(candidate_set))
+			scores.append([candidate, score])
+		scores.sort(key=itemgetter(1))
+		scores.reverse()
+		return scores
+
+		if self.verbose:
+			print("WSD for the word: %s" % word)
+			print("Sentence text   : %s" %s (sentence_text,))
+			print("Context         : %s" % context)
+			if expected_sense:
+				print('Expected sense  : %s'% (expected_sense,))
+			print("Top 3 scores:")
+			for score in scores[:3]:
+				print(("\tSense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss)))
+		return scores
+
+#------------------------------------------------------------------------------
+
 def test_semcor(file_name, verbose=True):
 	t = Timer()
 	total_timer = Timer()
@@ -581,10 +601,8 @@ def test_semcor(file_name, verbose=True):
 	lines = open(file_name).readlines()
 	print(("Found %s sentences in %s" % (len(lines), file_name)))
 	
-	t.start('Loading needed resource ...')
-	res = WSDResources.singleton()
-	t.end('Needed resources have been loaded')
-	
+	wsd=WSDToolKit(True)
+		
 	print(('-' * 80))
 	
 	c = Counter()
@@ -613,13 +631,7 @@ def test_semcor(file_name, verbose=True):
 			# sentence_text = parts[1].strip()
 			# Perform WSD on given word & sentence
 			t.start()
-			context = prepare_data(res, sentence_text)
-			if verbose:
-				print(("WSD for the word: %s" % word))
-				print(("Context         : %s" % sentence_text))
-				print(("Context tokens  : %s" % set(context)))
-				print(("Expected sense  : %s" % test_item.sk)) 
-			scores = lelesk_wsd(word, context)
+			scores = wsd.lelesk_wsd(word, context, test_item.sk)
 			if scores and len(scores) > 0:
 				correct_word = False
 				for score in scores:
@@ -670,9 +682,7 @@ def batch_wsd(file_loc):
 	lines = open(os.path.expanduser(file_loc)).readlines()
 	t.end("File has been loaded")
 	
-	t.start('Loading needed resource ...')
-	res = WSDResources.singleton()
-	t.end('Needed resources have been loaded')
+	wsd=WSDToolKit(True)
 	
 	print(('-' * 80))
 		
@@ -683,11 +693,7 @@ def batch_wsd(file_loc):
 			sentence_text = parts[1].strip()
 			# Perform WSD on given word & sentence
 			t.start()
-			context = prepare_data(res, sentence_text)
-			print(("WSD for the word: %s" % word))
-			print(("Context: %s" % sentence_text))
-			print(("Context tokens: %s" % set(context)))
-			scores = lelesk_wsd(word, context)
+			scores = wsd.lelesk_wsd(word, sentence_text)
 			print ("Top 3 scores")
 			for score in scores[:3]:
 				print(("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss)))
@@ -699,19 +705,11 @@ def batch_wsd(file_loc):
 def test_wsd():
 	word = 'bank'
 	sentence_texts = ['I went to the bank to deposit money.', 'The river bank is full of dead fish.']
+	wsd=WSDToolKit(True)
 	t = Timer()
-	t.start('Loading needed resource ...')
-	WSDResources.singleton()
-	t.end('Needed resources have been loaded')
 	for sentence_text in sentence_texts:
 		t.start()
-		context = prepare_data(res, sentence_text)
-		print(("WSD for the word: %s" % word))
-		print(("Context: %s" % context))
-		scores = lelesk_wsd(word, context)
-		print ("Top 3 scores")
-		for score in scores[:3]:
-			print(("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss)))
+		wsd.lelesk_wsd(word, sentence_text)
 		t.end('Analysed sentence: %s' % sentence_text)
 
 def optimize():
@@ -783,11 +781,11 @@ def optimize():
 	pass
 
 def test_candidates(word):
-	res = WSDResources.singleton()
+	wsd=WSDToolKit(True)
 	if not word:
 		word = 'table'
 	print(('Retrieving candidates for the word ["%s"]' % word))
-	candidates = get_sense_candidates(res, word)
+	candidates = wsd.get_sense_candidates(word)
 	if candidates:
 		print(("Candidates count: %s" % len(candidates)))
 		for candidate in candidates:
@@ -825,6 +823,46 @@ def test_wordnetgloss():
 	for sense in senses:
 		print(sense)
 	pass	
+
+#-----------------------------------------------------------------------
+# Main function
+#-----------------------------------------------------------------------
+def main():	
+	'''Main entry of lelesk console application.
+
+	Available commands:
+		test: Run bank test
+		candidates -i CHOSEN_WORD: Find candidates for a given word
+		batch -i PATH_TO_FILE: Perform WSD on a batch file
+		batch -i PATH_TO_SEMCOR_TEST_FILE: Perform WSD on Semcor (e.g. semcor_wn30.txt)
+	'''
+	parser = argparse.ArgumentParser(description="A library for performing Word Sense Disambiguation using Python.")
+	parser.add_argument('command', choices=['test', 'optimize', 'candidates', 'batch', 'semcor'], help='Command you want to execute (test/optimize/candidates/batch/semcor).')
+	group = parser.add_mutually_exclusive_group()
+	group.add_argument("-i", "--input", help='Input file/word to process')
+	group = parser.add_mutually_exclusive_group()
+	group.add_argument("-v", "--verbose", action="store_true")
+	group.add_argument("-q", "--quiet", action="store_true")
+
+	if len(sys.argv) == 1:
+		# User didn't pass any value in, show help
+		parser.print_help()
+	else:
+		args = parser.parse_args()
+		if args.verbose:
+			print("Application has been started in verbose mode ...")
+		task_map = { 'test' : test_wsd, 'optimize' : optimize, 'candidates' : test_candidates, 'batch' : batch_wsd, 'semcor' : test_semcor }
+		if args.command in ('candidates', 'batch', 'semcor'):
+			if not args.input:
+				print("An input is needed for this task ...")
+				parser.print_help()
+			else:
+				task_map[args.command](args.input)
+		else:
+			task_map[args.command]()
+		if args.verbose:
+			print("All done ...")
+	pass
 
 if __name__ == "__main__":
 	main()
