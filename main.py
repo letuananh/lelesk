@@ -112,15 +112,27 @@ class SenseInfo:
 		self.gloss = gloss
 		self.tagcount = tagcount
 		self.lemma = lemma
+
+	@staticmethod
+	def normalise_synsetid(sid):
+		if len(sid) < 10:
+			return '0' * (10 - len(sid)) + sid
+		elif len(sid) > 10:
+			return sid[-10:]
+		else:
+			return sid
 	
 	def get_full_sid(self):
 		return self.pos + str(self.sid)[1:]
 		
 	def __repr__(self):
 		return str(self)
-		
+
+	def get_canonical_synsetid(self):
+		return '%s-%s' % (str(self.sid)[1:], self.pos)
+
 	def __str__(self):
-		return "SenseInfo: pos:%s | synsetid:%s | sensekey:%s | freq: %s" % (self.pos, self.sid, self.sk, self.tagcount)
+		return "SenseInfo: pos:%s | synsetid:%s | sensekey:%s | freq: %s" % (self.pos, self.get_canonical_synsetid(), self.sk, self.tagcount)
 	
 class GlossInfo:
 	'''
@@ -332,6 +344,10 @@ class WordNetSQL:
 	
 	sense_cache = dict()
 	def get_all_senses(self, lemma, pos=None):
+		'''Get all senses of a lemma
+
+		Return an object with the type of lelesk.SenseInfo
+		'''
 		if lemma in WordNetSQL.sense_cache:
 			return WordNetSQL.sense_cache[lemma]
 		conn = sqlite3.connect(WORDNET_30_PATH)
@@ -448,8 +464,14 @@ class WSDCandidate:
 	def __init__(self, sense=None):
 		'''Data Transfer Object which holds information about a sense and tokens of its definition & 
 		'''
-		self.sense = sense #SenseInfo
+		self.sense = sense #SenseInfo (can access sensekey, synsetID, etc.)
 		self.tokens = []
+
+	def get_distinct_tokens(self):
+		return set(self.tokens)
+
+	def __str__(self):
+		return "%s - (Def: %s)" % (self.sense.get_canonical_synsetid(), self.sense.gloss)
 
 class WSDResources:
 	
@@ -487,21 +509,26 @@ class WSDToolKit:
 		self.res = WSDResources.singleton(lightweight)
 		if self.verbose:
 			t.end('Needed resources have been loaded')
+		self.candidate_cache={}
 		pass
 
-	def get_sense_candidates(self, word):
-		'''Get WordNet sense candidates for a given word
+	
+	def get_sense_candidates(self, word, lemmatizing=True):
+		'''Get WordNet sense candidates for a given word (return a list of WSDCandidate object)
 		'''
-		lemmatized_word = self.res.lemmatize(word)
+		if (word, lemmatizing) in self.candidate_cache:
+			return self.candidate_cache[(word, lemmatizing)]
+		lemmatized_word = self.res.lemmatize(word) if lemmatizing else word
 		senses = self.res.wnsql.get_all_senses(lemmatized_word)
 		candidates = []
-		# sc = len(senses)
+		#if self.verbose: print("Getting candidate senses for the word: %s" % (word,))
+		sc = len(senses)
 		num = 0
 		# t = Timer()
 		# t2 = Timer()
 		for sense in senses:
 			num+=1
-			# print("Processing sense %s/%s for the word [%s]" % (num, sc, word))
+			#if self.verbose: print("Processing sense %s/%s for the word [%s]" % (num, sc, word))
 			candidate = WSDCandidate(sense)
 			sk = sense.sk
 			# t.start()
@@ -530,6 +557,7 @@ class WSDToolKit:
 			#print "Final: %s" % candidate.tokens
 			candidates.append(candidate)
 			# t.stop().log('Finished build a candidate')
+		self.candidate_cache[(word, lemmatizing)] = candidates
 		return candidates
 		pass
 
@@ -553,26 +581,29 @@ class WSDToolKit:
 		candidates = self.candidates_cache[word]
 		#2. Calculate overlap between the context and each given word
 		context_set = set(context)
-		if self.verbose: print(context_set)
+		if self.verbose: print("Context set: %s" % context_set)
 		scores = []
 		for candidate in candidates:
-			candidate_set = set([ self.res.lemmatize(x) for x in candidate.tokens] + candidate.tokens)
+			candidate_set = set([ self.res.lemmatize(x) for x in candidate.tokens ] + candidate.tokens)
 			if self.verbose: print(candidate_set)
 			score = len(context_set.intersection(candidate_set))
 			scores.append([candidate, score])
 		scores.sort(key=itemgetter(1))
 		scores.reverse()
-		return scores
 
 		if self.verbose:
 			print("WSD for the word: %s" % word)
-			print("Sentence text   : %s" %s (sentence_text,))
+			print("Sentence text   : %s" % (sentence_text,))
 			print("Context         : %s" % context)
 			if expected_sense:
-				print('Expected sense  : %s'% (expected_sense,))
-			print("Top 3 scores:")
-			for score in scores[:3]:
-				print(("\tSense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss)))
+				print('Expected sense  : %s' % (expected_sense,))
+				if len(scores) > 0:
+					print('Suggested sense : %s' % (scores[0][0].sense.get_canonical_synsetid(),))
+				else:
+					print('No sense found')
+			#print("Top 3 scores:")
+			#for score in scores[:3]:
+			#	print(("\tSense: %s - Score: %s - Definition: %s" % (score[0].sense.get_canonical_synsetid(), score[1], score[0].sense.gloss)))
 		return scores
 
 #------------------------------------------------------------------------------
@@ -659,30 +690,69 @@ def test_semcor(file_name, verbose=True):
 	
 	pass
 
-def batch_wsd(file_loc):
+def batch_wsd(infile_loc, outfile_loc=None):
 	t = Timer()
-	t.start("Reading file %s" % file_loc)
-	lines = open(os.path.expanduser(file_loc)).readlines()
+	t.start("Reading file %s" % infile_loc)
+	lines = open(os.path.expanduser(infile_loc)).readlines()
 	t.end("File has been loaded")
 	
 	wsd=WSDToolKit(True)
 	
 	print(('-' * 80))
-		
+	c=Counter()
+	OutputLine=namedtuple('OutputLine', 'results word correct_sense suggested_sense sentence_text'.split())
+	outputlines = []	
 	for line in lines:
 		parts = line.split('\t')
-		if parts and len(parts) == 2:
+		if parts and len(parts) == 3:
 			word = parts[0].strip()
-			sentence_text = parts[1].strip()
+			correct_sense = SenseInfo.normalise_synsetid(parts[1].strip())
+			sentence_text = parts[2].strip()
+			results = 'X'
 			# Perform WSD on given word & sentence
 			t.start()
-			scores = wsd.lelesk_wsd(word, sentence_text)
-			print ("Top 3 scores")
+			scores = wsd.lelesk_wsd(word, sentence_text, correct_sense)
+			suggested_senses = [ score[0].sense.get_canonical_synsetid() for score in scores[:3] ]
+			c.count("Sense")
+			if len(suggested_senses) == 0:
+				c.count("No sense")
+				results = '_'
+			elif correct_sense == suggested_senses[0]:
+				c.count("Match")
+				results = 'O'
+			elif correct_sense in suggested_senses:
+				c.count("In Top 3")
+				results = 'V'
+			else:
+				c.count("Wrong")
+
+			# write to output file
+			if len(suggested_senses) > 0:
+				outputlines.append(OutputLine(results, word, correct_sense, suggested_senses[0], sentence_text))
+			else:
+				outputlines.append(OutputLine(results, word, correct_sense, "", sentence_text))
+			# Debug information (all scores)
+			print ("All scores")
 			for score in scores[:3]:
-				print(("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_full_sid(), score[1], score[0].sense.gloss)))
+				print(("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_canonical_synsetid(), score[1], score[0].sense.gloss)))
+			for score in scores[3:]:
+				print(("Sense: %s - Score: %s - Definition: %s" % (score[0].sense.get_canonical_synsetid(), score[1], score[0].sense.gloss)))
+			print("")
 			t.end('Analysed word ["%s"] on sentence: %s' % (word, sentence_text))
 			print(('-' * 80))
+	print("-" * 80)
+	print("")
+	c.summarise()
+
+	if outfile_loc:
+		jilog("Writing output file ...")
+		with open(outfile_loc, 'w') as outfile:
+			outfile.write("results\tword\tcorrect_sense\tsuggested_sense\tsentence_text\n")
+			for line in outputlines:
+				outfile.write('%s\t%s\t%s\t%s\t%s\n' % (line.results ,line.word ,line.correct_sense ,line.suggested_sense ,line.sentence_text))
+		jilog("Done.")
 	jilog("Batch job finished")
+
 	print('Done!')
 
 def test_wsd():
@@ -759,6 +829,7 @@ def optimize():
 	# The application should run faster from the second time
 	t.start()
 	test_expand()
+
 	t.stop().log('Expanding [table] again ...')
 
 	pass
@@ -775,7 +846,9 @@ def test_candidates(word):
 			print("-" * 80)
 			print(str(candidate.sense))
 			print("-" * 80)
-			print(candidate.tokens)
+			print("All tokens: %s" % (candidate.tokens,))
+			print("Final set: %s" % (candidate.get_distinct_tokens(),))
+			print('')
 	pass
 	
 def dump_sense(a_sense, show_tagged_only=True):
@@ -824,8 +897,9 @@ def main():
 	#
 	parser = argparse.ArgumentParser(description="A library for performing Word Sense Disambiguation using Python.")
 	parser.add_argument('command', choices=['test', 'optimize', 'candidates', 'batch', 'semcor'], help='Command you want to execute (test/optimize/candidates/batch/semcor).')
+	parser.add_argument("-i", "--input", help='Input file/word to process')
+	parser.add_argument("-o", "--output", help='Output file')
 	group = parser.add_mutually_exclusive_group()
-	group.add_argument("-i", "--input", help='Input file/word to process')
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument("-v", "--verbose", action="store_true")
 	group.add_argument("-q", "--quiet", action="store_true")
@@ -842,6 +916,8 @@ def main():
 			if not args.input:
 				print("An input is needed for this task ...")
 				parser.print_help()
+			if args.command == 'batch':
+				batch_wsd(args.input, args.output)
 			else:
 				task_map[args.command](args.input)
 		else:

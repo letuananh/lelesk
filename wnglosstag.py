@@ -42,13 +42,13 @@ class SynsetCollection:
 				self.sk_map[key] = synset
 		
 	def by_sid(self, sid):
-		if self.sid_map.has_key(sid):
+		if sid in self.sid_map:
 			return self.sid_map[sid]
 		else:
 			return None
 	
 	def by_sk(self, sk):
-		if self.sk_map.has_key(sk):
+		if sk in self.sk_map:
 			return self.sk_map[sk]
 		else:
 			return None
