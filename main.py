@@ -60,6 +60,15 @@ from wnglosstag import *
 #WORDNET_30_PATH = os.path.expanduser('~/wk/cldata/ntumc/wn-ntumc.db')
 WORDNET_30_PATH = os.path.expanduser('~/wordnet/sqlite-30.db')
 WORDNET_30_GLOSSTAG_PATH = os.path.expanduser('~/wordnet/glosstag')
+NTUMC_PRONOUNS= ["77000021-n", "77000107-a", "77000043-a", "77000041-n", 
+				 "77000002-n", "77000061-a", "09604451-n", "09604451-n",
+				 "80000333-n", "77000024-a", "80000379-n", "77000050-a", 
+				 "77000091-n", "77000082-n", "77000031-n", "07000079-a", 
+				 "77000031-n", "77000016-n", "77000052-n", "77000079-n", 
+				 "77000039-a", "77000041-n", "77000046-n", "80000413-n", 
+				 "77000058-a", "77000061-n", "77000092-n", "77000015-n", 
+				 "77000053-n", "77000046-n", "77000015-n", "80000413-n"
+				 ]
 #-----------------------------------------------------------------------
 reword = re.compile('\w+')
 
@@ -699,9 +708,14 @@ def batch_wsd(infile_loc, outfile_loc=None):
 	wsd=WSDToolKit(True)
 	
 	print(('-' * 80))
-	c=Counter()
+	c=Counter('Match InTop3 Wrong NoSense TotalSense'.split())
 	OutputLine=namedtuple('OutputLine', 'results word correct_sense suggested_sense sentence_text'.split())
-	outputlines = []	
+	outputlines = []
+	# Counters for different type of words
+	match_count = Counter()
+	top3_count = Counter()
+	wrong_count = Counter()
+	nosense_count = Counter()
 	for line in lines:
 		parts = line.split('\t')
 		if parts and len(parts) == 3:
@@ -713,17 +727,28 @@ def batch_wsd(infile_loc, outfile_loc=None):
 			t.start()
 			scores = wsd.lelesk_wsd(word, sentence_text, correct_sense)
 			suggested_senses = [ score[0].sense.get_canonical_synsetid() for score in scores[:3] ]
-			c.count("Sense")
+			# c.count("TotalSense")
+
+			if correct_sense in NTUMC_PRONOUNS:
+				c.count("IGNORED")
+				continue
+			else:
+				c.count("TotalSense")
+
 			if len(suggested_senses) == 0:
-				c.count("No sense")
+				nosense_count.count(correct_sense + '\t' + word)
+				c.count("NoSense")
 				results = '_'
 			elif correct_sense == suggested_senses[0]:
+				match_count.count(correct_sense + '\t' + word)
 				c.count("Match")
 				results = 'O'
 			elif correct_sense in suggested_senses:
-				c.count("In Top 3")
+				top3_count.count(correct_sense + '\t' + word)
+				c.count("InTop3")
 				results = 'V'
 			else:
+				wrong_count.count(correct_sense + '\t' + word)
 				c.count("Wrong")
 
 			# write to output file
@@ -746,6 +771,11 @@ def batch_wsd(infile_loc, outfile_loc=None):
 
 	if outfile_loc:
 		jilog("Writing output file ...")
+		save_counter_to_file(match_count, outfile_loc + '.match.txt')
+		save_counter_to_file(top3_count, outfile_loc + '.top3.txt')
+		save_counter_to_file(wrong_count, outfile_loc + '.wrong.txt')
+		save_counter_to_file(nosense_count, outfile_loc + '.nosense.txt')
+
 		with open(outfile_loc, 'w') as outfile:
 			outfile.write("results\tword\tcorrect_sense\tsuggested_sense\tsentence_text\n")
 			for line in outputlines:
@@ -753,7 +783,15 @@ def batch_wsd(infile_loc, outfile_loc=None):
 		jilog("Done.")
 	jilog("Batch job finished")
 
+	# Store counters for debugging
+
 	print('Done!')
+
+def save_counter_to_file(counter, filename):
+	with open(filename, 'w') as output:
+		items = counter.sorted_by_count()
+		for k, v in items:
+			output.write('%s\t%s\n' % (k, v))
 
 def test_wsd():
 	word = 'bank'
