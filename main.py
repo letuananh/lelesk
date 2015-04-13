@@ -357,23 +357,23 @@ class WordNetSQL:
 
 		Return an object with the type of lelesk.SenseInfo
 		'''
-		if lemma in WordNetSQL.sense_cache:
-			return WordNetSQL.sense_cache[lemma]
+		if (lemma, pos) in WordNetSQL.sense_cache:
+			return WordNetSQL.sense_cache[(lemma, pos)]
 		conn = sqlite3.connect(WORDNET_30_PATH)
 		c = conn.cursor()
 		if pos:
-			result = c.execute("""SELECT pos, synsetid, sensekey, definition 
+			result = c.execute("""SELECT pos, synsetid, sensekey, definition, tagcount 
 								FROM wordsXsensesXsynsets
 								WHERE lemma = ? and pos = ?;""", (lemma, pos)).fetchall()
 		else:
-			result = c.execute("""SELECT pos, synsetid, sensekey, definition 
+			result = c.execute("""SELECT pos, synsetid, sensekey, definition, tagcount 
 								FROM wordsXsensesXsynsets
 								WHERE lemma = ?;""", (lemma,)).fetchall()
 		senses = []
-		for (pos, synsetid, sensekey, definition) in result:
-			senses.append(SenseInfo(pos, synsetid, sensekey, '', definition))
+		for (pos, synsetid, sensekey, definition, tagcount) in result:
+			senses.append(SenseInfo(pos, synsetid, sensekey, '', definition, tagcount))
 		conn.close()
-		WordNetSQL.sense_cache[lemma] = senses
+		WordNetSQL.sense_cache[(lemma, pos)] = senses
 		return senses
 		
 	def cache_all_sense_by_lemma(self):
@@ -522,13 +522,13 @@ class WSDToolKit:
 		pass
 
 	
-	def get_sense_candidates(self, word, lemmatizing=True):
+	def get_sense_candidates(self, word, lemmatizing=True, pos=None):
 		'''Get WordNet sense candidates for a given word (return a list of WSDCandidate object)
 		'''
-		if (word, lemmatizing) in self.candidate_cache:
-			return self.candidate_cache[(word, lemmatizing)]
+		if (word, lemmatizing, pos) in self.candidate_cache:
+			return self.candidate_cache[(word, lemmatizing, pos)]
 		lemmatized_word = self.res.lemmatize(word) if lemmatizing else word
-		senses = self.res.wnsql.get_all_senses(lemmatized_word)
+		senses = self.res.wnsql.get_all_senses(lemmatized_word, pos)
 		candidates = []
 		#if self.verbose: print("Getting candidate senses for the word: %s" % (word,))
 		sc = len(senses)
@@ -566,7 +566,7 @@ class WSDToolKit:
 			#print "Final: %s" % candidate.tokens
 			candidates.append(candidate)
 			# t.stop().log('Finished build a candidate')
-		self.candidate_cache[(word, lemmatizing)] = candidates
+		self.candidate_cache[(word, lemmatizing, pos)] = candidates
 		return candidates
 		pass
 
@@ -579,15 +579,15 @@ class WSDToolKit:
 		tokens = [ self.res.lemmatize(x) for x in tokens] + tokens
 		return tokens
 
-	def lelesk_wsd(self, word, sentence_text, expected_sense=''):
+	def lelesk_wsd(self, word, sentence_text, expected_sense='', lemmatizing=True, pos=None):
 		'''Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0
 		'''
 		context = self.prepare_data(sentence_text)
 		
 		#1. Retrieve candidates for the given word
-		if word not in self.candidates_cache:
-			self.candidates_cache[word] = self.get_sense_candidates(word)
-		candidates = self.candidates_cache[word]
+		if (word, pos) not in self.candidates_cache:
+			self.candidates_cache[(word, pos)] = self.get_sense_candidates(word, lemmatizing, pos=pos)
+		candidates = self.candidates_cache[(word, pos)]
 		#2. Calculate overlap between the context and each given word
 		context_set = set(context)
 		if self.verbose: print("Context set: %s" % context_set)
@@ -596,14 +596,15 @@ class WSDToolKit:
 			candidate_set = set([ self.res.lemmatize(x) for x in candidate.tokens ] + candidate.tokens)
 			if self.verbose: print(candidate_set)
 			score = len(context_set.intersection(candidate_set))
-			scores.append([candidate, score])
-		scores.sort(key=itemgetter(1))
+			scores.append([candidate, score, candidate.sense.tagcount])
+		scores.sort(key=itemgetter(1, 2))
 		scores.reverse()
 
 		if self.verbose:
-			print("WSD for the word: %s" % word)
+			print("WSD for the word: %s" % (word,))
 			print("Sentence text   : %s" % (sentence_text,))
-			print("Context         : %s" % context)
+			print("Context         : %s" % context,)
+			print("POS             : %s" % (pos,))
 			if expected_sense:
 				print('Expected sense  : %s' % (expected_sense,))
 				if len(scores) > 0:
@@ -614,6 +615,33 @@ class WSDToolKit:
 			#for score in scores[:3]:
 			#	print(("\tSense: %s - Score: %s - Definition: %s" % (score[0].sense.get_canonical_synsetid(), score[1], score[0].sense.gloss)))
 		return scores
+
+	def mfs_wsd(self, word, sentence_text, expected_sense='', lemmatizing=True, pos=None):
+		'''Perform Word-sense disambiguation with just most-frequent senses
+		'''
+		
+		#1. Retrieve candidates for the given word
+		if (word, pos) not in self.candidates_cache:
+			self.candidates_cache[(word, pos)] = self.get_sense_candidates(word, lemmatizing, pos=pos)
+		candidates = self.candidates_cache[(word, pos)]
+		scores = []
+		for candidate in candidates:
+			scores.append([candidate, candidate.sense.tagcount])
+		scores.sort(key=itemgetter(1))
+		scores.reverse()
+
+		if self.verbose:
+			print("WSD for the word: %s" % (word,))
+			print("Sentence text   : %s" % (sentence_text,))
+			print("POS             : %s" % (pos,))
+			if expected_sense:
+				print('Expected sense  : %s' % (expected_sense,))
+				if len(scores) > 0:
+					print('Suggested sense : %s' % (scores[0][0].sense.get_canonical_synsetid(),))
+				else:
+					print('No sense found')
+		return scores
+
 
 #------------------------------------------------------------------------------
 
@@ -699,7 +727,7 @@ def test_semcor(file_name, verbose=True):
 	
 	pass
 
-def batch_wsd(infile_loc, outfile_loc=None):
+def batch_wsd(infile_loc, outfile_loc=None, method='lelesk'):
 	t = Timer()
 	t.start("Reading file %s" % infile_loc)
 	lines = open(os.path.expanduser(infile_loc)).readlines()
@@ -717,15 +745,34 @@ def batch_wsd(infile_loc, outfile_loc=None):
 	wrong_count = Counter()
 	nosense_count = Counter()
 	for line in lines:
+		if line.startswith('#'):
+			# it is a comment line
+			continue
 		parts = line.split('\t')
-		if parts and len(parts) == 3:
-			word = parts[0].strip()
-			correct_sense = SenseInfo.normalise_synsetid(parts[1].strip())
-			sentence_text = parts[2].strip()
+		if parts:
+			if len(parts) == 3: 
+				word = parts[0].strip()
+				correct_sense = SenseInfo.normalise_synsetid(parts[1].strip())
+				pos = None
+				sentence_text = parts[2].strip()
+			elif len(parts) == 4:
+				word = parts[0].strip()
+				correct_sense = SenseInfo.normalise_synsetid(parts[1].strip())
+				pos = parts[2].strip()
+				sentence_text = parts[3].strip()
+			if pos in ('', 'x'):
+				pos = None
+
+			# Let's ignore pos for now
+			pos = None
+
 			results = 'X'
 			# Perform WSD on given word & sentence
 			t.start()
-			scores = wsd.lelesk_wsd(word, sentence_text, correct_sense)
+			if method == 'mfs':
+				scores = wsd.mfs_wsd(word, sentence_text, correct_sense, pos=pos)
+			else:
+				scores = wsd.lelesk_wsd(word, sentence_text, correct_sense, pos=pos)
 			suggested_senses = [ score[0].sense.get_canonical_synsetid() for score in scores[:3] ]
 			# c.count("TotalSense")
 
@@ -937,6 +984,7 @@ def main():
 	parser.add_argument('command', choices=['test', 'optimize', 'candidates', 'batch', 'semcor'], help='Command you want to execute (test/optimize/candidates/batch/semcor).')
 	parser.add_argument("-i", "--input", help='Input file/word to process')
 	parser.add_argument("-o", "--output", help='Output file')
+	parser.add_argument("-m", "--method", help='WSD method (lelesk/mfs) default is lelesk')
 	group = parser.add_mutually_exclusive_group()
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument("-v", "--verbose", action="store_true")
@@ -955,7 +1003,8 @@ def main():
 				print("An input is needed for this task ...")
 				parser.print_help()
 			if args.command == 'batch':
-				batch_wsd(args.input, args.output)
+				method = args.method if args.method else 'lelesk'
+				batch_wsd(args.input, args.output, method)
 			else:
 				task_map[args.command](args.input)
 		else:
