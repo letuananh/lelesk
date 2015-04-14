@@ -207,7 +207,7 @@ class WNGlossTag:
 				simplified_synset.keys.extend(synset.keys)
 				simplified_synset.terms.extend(synset.terms)
 				for token in synset.def_gloss:
-					simplified_synset.def_gloss.append(TaggedWord(token.text, token.sk))
+					simplified_synset.def_gloss.append(TaggedWord(token.lemma, token.sk))
 				element.clear()
 				synsets.add(simplified_synset)
 				# print("Synset: [%s]" % synset)
@@ -270,6 +270,7 @@ class WNGlossTag:
 
 	@staticmethod
 	def build_lelesk_data(root=os.path.expanduser('~/wordnet/glosstag/merged'), verbose=False, memory_save=True):
+		print("Building lelesk data from Glosssed WordNet ...")
 		t = Timer()
 		all_synsets = SynsetCollection()
 
