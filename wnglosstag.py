@@ -133,8 +133,12 @@ class ExampleToken:
 	def __str__(self):
 		return "(id:%s|sk=%s [%s|txt=%s] tag:%s)" % (self.eid, self.sk, self.lemma, self.text, self.tag)
 
-TaggedWord = namedtuple('TaggedWord', ['text', 'sk'])
-		
+class TaggedWord:
+	def __init__(self, text, sk, lemma=None):
+		self.text = text
+		self.sk = sk
+		self.lemma = lemma
+
 class WNGlossTag:
 
 	@staticmethod
@@ -207,7 +211,7 @@ class WNGlossTag:
 				simplified_synset.keys.extend(synset.keys)
 				simplified_synset.terms.extend(synset.terms)
 				for token in synset.def_gloss:
-					simplified_synset.def_gloss.append(TaggedWord(token.lemma, token.sk))
+					simplified_synset.def_gloss.append(TaggedWord(token.text, token.sk, token.lemma))
 				element.clear()
 				synsets.add(simplified_synset)
 				# print("Synset: [%s]" % synset)

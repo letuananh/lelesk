@@ -295,7 +295,6 @@ class WordNetSQL:
 		result = c.execute(_query).fetchall()
 		# Build lemma map
 		lemma_map = {}
-		senses = []
 		for (lemma, pos, synsetid, sensekey, definition, tagcount) in result:
 			# ss_type
 			# One character code indicating the synset type:
@@ -507,7 +506,7 @@ class WSDResources:
 	def __init__(self, lightweight=False, verbose=False):
 		# self.sscol = WNGlossTag.read_all_glosstag(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=True)
 		if not lightweight:
-			self.sscol = WNGlossTag.build_lelesk_data(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=verbose)
+			self.sscol = WNGlossTag.build_lelesk_data(os.path.join(WORDNET_30_GLOSSTAG_PATH, 'merged'), verbose=verbose, memory_save=False)
 		self.wnsql = WordNetSQL.get_default()
 		self.wnl = WordNetLemmatizer()
 		self.lemmatize_cache = dict()
@@ -537,6 +536,17 @@ class WSDToolKit:
 		self.candidate_cache={}
 		pass
 
+	def extend_tokenlist(self, tokenlist, twlist):
+		for item in twlist:
+			if item.text:
+				tokenlist.append(item.text)
+			if item.lemma:
+				lemmaparts = item.lemma.split('|')
+				for lemmapart in lemmaparts:
+					parts = lemmapart.split('%')
+					if parts:
+						tokenlist.append(parts[0])
+
 	def get_sense_candidates(self, word, lemmatizing=True, pos=None, extended=True, glossedwn=True):
 		'''Get WordNet sense candidates for a given word (return a list of WSDCandidate object)
 		'''
@@ -564,15 +574,25 @@ class WSDToolKit:
 				if not synset_gloss:
 					# print("I gave up, I couldn't find it by synset ID either ...")
 					continue
-			candidate.tokens.extend([ x.text for x in synset_gloss.def_gloss ])
+			# print("I'm extending candidate %s by %s elemens" % (sense.get_gwn_sid(), len(synset_gloss.def_gloss)))
+			self.extend_tokenlist(candidate.tokens, synset_gloss.def_gloss)
+			# candidate.tokens += [ x.text for x in synset_gloss.def_gloss ]
+            
+            # Add tokens from gloss from hypenym & hyponym
+			more_tokens = self.res.wnsql.get_hypehypo_text(sense.get_gwn_sid())
+			if more_tokens:
+				candidate.tokens += more_tokens
+
 			for child_token in synset_gloss.def_gloss:
 				# t2.start() 
 				# Find gloss of each token in the gloss of the current sense
 				if self.res.sscol.by_sk(child_token.sk):
 					child_gloss = self.res.sscol.by_sk(child_token.sk)
 					# x is GlossToken object
-					candidate.tokens.extend([ x.text for x in child_gloss.def_gloss ]) 
+					self.extend_tokenlist(candidate.tokens, child_gloss.def_gloss)
+					# candidate.tokens += [ x.text for x in child_gloss.def_gloss ]
 				# t2.stop().log('get child gloss')
+				#---------------------------------------------------------------
 				# extend hypernyms & hyponyms of each token in the gloss
 				# of the current sense
 				senseinfo = self.res.wnsql.get_senseinfo_by_sk(child_token.sk)
@@ -587,7 +607,9 @@ class WSDToolKit:
 							more_tokens = self.res.wnsql.get_hypehypo_text(child_sense.sid)
 							candidate.tokens += more_tokens # Hype & hypo of tagged tokens
 					pass
-			candidate.tokens = [_f for _f in candidate.tokens if _f]
+				#----------------------------------------------------------------
+			# Filter out special character
+			candidate.tokens = [ _f for _f in candidate.tokens if _f and _f not in """!"#$%&\'()*+,-./:;?@[\\]^_`{|}~``''""" ]
 			candidates.append(candidate)
 		self.candidate_cache[(word, lemmatizing, pos)] = candidates
 		return candidates
@@ -804,11 +826,14 @@ def batch_wsd(infile_loc, outfile_loc=None, method='lelesk', use_pos=False, assu
 			# Perform WSD on given word & sentence
 			t.start()
 			if method == 'mfs':
+				# jilog("Activating MFS WSD")
 				scores = wsd.mfs_wsd(word, sentence_text, correct_sense, lemmatizing=lemmatizing, pos=pos)
 			else:
 				if pretokenized and context and len(context) > 0:
+					# jilog("Activating Lelesk with pretokenized")
 					scores = wsd.lelesk_wsd(word, sentence_text, correct_sense, lemmatizing=lemmatizing, pos=pos, context=context)
 				else:
+					# jilog("Activating Lelesk with NTLK tokenizer")
 					scores = wsd.lelesk_wsd(word, sentence_text, correct_sense, lemmatizing=lemmatizing, pos=pos)
 			suggested_senses = [ score[0].sense.get_canonical_synsetid() for score in scores[:3] ]
 			# c.count("TotalSense")
