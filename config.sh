@@ -21,4 +21,5 @@ function link_file {
 }
 
 link_folder ~/workspace/chirptext chirptext
+link_folder ~/workspace/puchikarui puchikarui
 git submodule init && git submodule update

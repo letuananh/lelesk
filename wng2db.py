@@ -1,18 +1,25 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-#Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
+'''
+A tool for converting Gloss WordNet into SQLite
+Latest version can be found at https://github.com/letuananh/lelesk
 
+@author: Le Tuan Anh <tuananh.ke@gmail.com>
+'''
+
+# Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
+#
 #Permission is hereby granted, free of charge, to any person obtaining a copy
 #of this software and associated documentation files (the "Software"), to deal
 #in the Software without restriction, including without limitation the rights
 #to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 #copies of the Software, and to permit persons to whom the Software is
 #furnished to do so, subject to the following conditions:
-
+#
 #The above copyright notice and this permission notice shall be included in
 #all copies or substantial portions of the Software.
-
+#
 #THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 #IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 #FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -21,12 +28,46 @@
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 #THE SOFTWARE.
 
-from lxml import etree
-from collections import namedtuple
-import os
+__author__ = "Le Tuan Anh <tuananh.ke@gmail.com>"
+__copyright__ = "Copyright 2014, lelesk"
+__credits__ = [ "Le Tuan Anh" ]
+__license__ = "MIT"
+__version__ = "0.1"
+__maintainer__ = "Le Tuan Anh"
+__email__ = "<tuananh.ke@gmail.com>"
+__status__ = "Prototype"
+
 import sys
-from chirptext.leutile import *
-import pickle
+import os.path
+import argparse
+from puchikarui import Schema#, DataSource, Table
+#-----------------------------------------------------------------------
+# CONFIGURATION
+#-----------------------------------------------------------------------
+WORDNET_30_PATH = os.path.expanduser('~/wordnet/sqlite-30.db')
+WORDNET_30_GLOSSTAG_PATH = os.path.expanduser('~/wordnet/glosstag')
+WORDNET_30_GLOSS_DB_PATH = os.path.expanduser('~/wordnet/glosstag.db')
+DB_INIT_SCRIPT = os.path.expanduser('./script/wngdb.sql')
+#-----------------------------------------------------------------------
+
+class SchemaDemo(Schema):
+    def __init__(self, data_source=None):
+        Schema.__init__(self, data_source)
+        self.add_table('meta', 'title license WNVer url maintainer'.split())
+        self.add_table('synset', ['id', 'offset', 'pos'])
+        self.add_table('gloss', 'id sid orig gloss'.split())
+        self.add_table('glossitem', 'id ord gid tag lemma pos cat coll rdf sep text origid'.split())
+        self.add_table('sensetag', 'id cat tag glob glob_lemma coll origid sid gid sk tag_lemma tag_id tag_text itemid'.split())
+
+#-----------------------------------------------------------------------
+
+#-----------------------------------------------------------------------
+
+def header(msg):
+    print('')
+    print('-' * 80)
+    print(msg)
+    print('')
 
 class SynsetCollection:
     def __init__(self):
@@ -62,85 +103,78 @@ class SynsetCollection:
             self.add(synset)
 
 class Synset:
-    def __init__(self, sid, ofs, pos, gloss_orig='', gloss_text=''):
-        self.sid = sid
-        self.ofs = ofs
-        self.pos = pos
-        self.gloss_orig = gloss_orig
-        self.gloss_text = gloss_text
-        self.keys = []
+    def __init__(self, sid, ofs, pos, orig=None, gloss=None):
+        self.sid   = sid
+        self.ofs   = ofs
+        self.pos   = pos
+        self.keys  = []
         self.terms = []
-        self.def_gloss = []
-        self.examples = []
+        self.gloss_raw = []
+        self.gloss = []
     
     def __str__(self):
-        return "sid: %s | ofs: %s | pos: %s | orig: %s | text: %s | keys: %s | terms: %s | def_gloss: %s | examples: %s" % (self.sid, self.ofs, self.pos,
-        self.gloss_orig, self.gloss_text, self.keys, self.terms, self.def_gloss, self.examples)
-    def add_gloss_token(self, tid, lemma, pos, tag, text='', sk=''):
-        gt = GlossToken(self, tid, lemma, pos, tag, text, sk)
-        self.def_gloss.append(gt)
-        return gt
-        
-    def add_example(self):
-        ex = Example(self)
-        self.examples.append(ex)
-        return ex
-
-class GlossToken:
-    def __init__(self, synset, tid, lemma, pos, tag, text='', sk=''):
+        return "sid: %s | ofs: %s | pos: %s | keys: %s | terms: %s | glosses: %s" % (self.sid, self.ofs, self.pos, self.keys, self.terms, self.glosses)
+   
+class Gloss:
+    def __init__(self, synset, origid):
         self.synset = synset
-        self.tid = tid
+        self.origid = origid
+        self.items = []
+        self.tags = []
+        pass
+
+    def add_gloss_item(self, tag, lemma, pos, cat, coll, rdf, origid, sep = None, text = None):
+        gt = GlossItem(self, tag, lemma, pos, cat, coll, rdf, origid, sep, text)
+        self.tokens.append(gt)
+        return gt
+
+    def tag_item(self, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id, text):
+        tag = SenseTag(self, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id, text)
+        self.tags.append(tag)
+        return tag
+
+class SenseTag:
+    def __init__(self, gloss, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id, text):
+        self.id = None
+        self.cat = cat
+        self.tag = tag
+        self.glob = glob
+        self.glemma = glemma
+        self.coll = coll
+        self.origid = origid
+        self.sid = sid
+        self.gloss = gloss
+        self.sk = sk
+        self.lemma = lemma
+        self.tag_id = tag_id
+        self.text = text
+        self.item = item
+
+    def __str__(self):
+        return "%s (sk:%s)" % (self.lemma, self.sk)
+
+class GlossItem:
+    def __init__(self, gloss, tag, lemma, pos, cat, coll, rdf, origid, sep=None, text=None):
+        self.id = None
+        self.gloss = gloss
+        self.tag = tag
         self.lemma = lemma
         self.pos = pos
-        self.tag = tag
-        self.text=text
-        self.sk = sk
+        self.cat = cat
+        self.coll = coll
+        self.rdf = rdf
+        self.sep = sep
+        self.text = text
+        self.origid = origid
         pass
     
     def __repr__(self):
         return str(self)
         
     def __str__(self):
-        return "(id:%s|sk=%s [%s|txt=%s] tag:%s)" % (self.tid, self.sk, self.lemma, self.text, self.tag)
-
-class Example:
-    def __init__(self, synset):
-        self.synset = synset
-        self.tokens = []
-        pass
-        
-    def add_token(self, eid, lemma, tag, text='', sk=''):
-        tk = ExampleToken(self.synset, eid, lemma, tag, text, sk)
-        self.tokens.append(tk)
-        return tk
-    
-    def __repr__(self):
-        return str(self)
-        
-    def __str__(self):
-        return str(self.tokens)
-        
-class ExampleToken:
-    def __init__(self, synset, eid, lemma, tag, text='', sk=''):
-        self.synset = synset
-        self.eid = eid
-        self.lemma = lemma
-        self.tag = tag
-        self.text = text
-        self.sk = sk
-    def __repr__(self):
-        return str(self)
-    def __str__(self):
-        return "(id:%s|sk=%s [%s|txt=%s] tag:%s)" % (self.eid, self.sk, self.lemma, self.text, self.tag)
-
-class TaggedWord:
-    def __init__(self, text, sk, lemma=None):
-        self.text = text
-        self.sk = sk
-        self.lemma = lemma
+        return "%s (id:%s)" % (self.lemma, self.origid)
 
 class WNGlossTag:
-
     @staticmethod
     def element_to_Synset(element, memory_save=True):
         synset = Synset(element.get('id'),element.get('ofs'),element.get('pos')) if not memory_save else Synset(element.get('id'), '', '')
@@ -253,125 +287,63 @@ class WNGlossTag:
                     tk.text = StringTool.strip(token_elem.text)
         # end each def token
 
-    @staticmethod
-    def rip_wf_elem(rootnode, example_obj):
-        # add examples
-        for token_elem in rootnode:
-            if token_elem.tag == 'wf':
-                tk = example_obj.add_token(token_elem.get('id'),token_elem.get('lemma'),token_elem.get('tag'))
-                # Add gloss def
-                if len(token_elem) > 1 and token_elem[0].tag == 'id':
-                    tk.sk = token_elem[0].get('sk')
-                    if token_elem[0].text:
-                        tk.text = StringTool.strip(token_elem[0].text)
-                    else:
-                        tk.text = StringTool.strip(token_elem[0].get('lemma'))
-                else:
-                    tk.text = StringTool.strip(token_elem.text)
-            elif token_elem.tag == 'qf':
-                # trip children nodes
-                WNGlossTag.rip_wf_elem(token_elem, example_obj)
 
-    @staticmethod
-    def build_lelesk_data(root=os.path.expanduser('~/wordnet/glosstag/merged'), verbose=False, memory_save=True):
-        print("Building lelesk data from Glosssed WordNet ...")
-        t = Timer()
-        all_synsets = SynsetCollection()
+def process(a_file, db):
+    pass
 
-        t.start()
-        file_name = os.path.join(root, 'adj.xml')
-        synsets = WNGlossTag.extract_for_lesk(file_name, synsets=all_synsets, memory_save=memory_save)
-        if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
+def convert(wng_loc, wng_db_loc):
+    merged_folder = os.path.join(wng_loc, 'merged')
+    xml_file = os.path.join(merged_folder, 'test.xml')
+    print("Path to glosstag folder: %s" % (merged_folder))
+    print("Processing file  : %s" % (xml_file))
+    print("Path to output database: %s" % (wng_db_loc))
+    print("Script to execute: %s" % (DB_INIT_SCRIPT))
 
-        t.start()
-        file_name = os.path.join(root, 'adv.xml')
-        synsets = WNGlossTag.extract_for_lesk(file_name, synsets=all_synsets, memory_save=memory_save)
-        if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
+    db = SchemaDemo.connect(wng_db_loc)
+    header('Creating database file ...')
+    db.ds().executefile(DB_INIT_SCRIPT)
+    for meta in db.meta.select():
+        print(meta)
 
-        t.start()
-        file_name = os.path.join(root, 'verb.xml')
-        synsets = WNGlossTag.extract_for_lesk(file_name, synsets=all_synsets, memory_save=memory_save)
-        if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
-        
-        t.start()
-        file_name = os.path.join(root, 'noun.xml')
-        synsets = WNGlossTag.extract_for_lesk(file_name, synsets=all_synsets, memory_save=memory_save)
-        if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
-        
-        return all_synsets
+    header('Extracting Gloss WordNet ...')
+    process(xml_file, db)
+    db.close()
+    pass
 
-    @staticmethod
-    def read_all_glosstag(root=os.path.expanduser('~/wordnet/glosstag/merged'), verbose=False, memory_save=True):
-        t = Timer()
-        all_synsets = SynsetCollection()
-
-        t.start()
-        file_name = os.path.join(root, 'adj.xml')
-        synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
-        if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
-
-        t.start()
-        file_name = os.path.join(root, 'adv.xml')
-        synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
-        if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
-
-        t.start()
-        file_name = os.path.join(root, 'verb.xml')
-        synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
-        if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
-        
-        t.start()
-        file_name = os.path.join(root, 'noun.xml')
-        synsets = WNGlossTag.read_xml_data(file_name, synsets=all_synsets, memory_save=memory_save)
-        if verbose: t.end("Found %s synsets in file [%s]" % (synsets.count(), file_name))
-        
-        return all_synsets
-
-# Demo
 def main():
-    print ("WordNet glosstag cache demo")
-    rootfolder = os.path.expanduser('~/wordnet/glosstag/merged')
-    # all_synsets = WNGlossTag.read_all_glosstag(rootfolder, verbose=True, memory_save=True)
-    all_synsets = WNGlossTag.build_lelesk_data(rootfolder, verbose=True, memory_save=True)
-    print("Total synsets: %s" % all_synsets.count())
+    '''Main entry of wng2db
+
+    Available commands:
+        test: Run bank test
+        candidates -i CHOSEN_WORD: Find candidates for a given word
+        batch -i PATH_TO_FILE: Perform WSD on a batch file
+        batch -i PATH_TO_SEMCOR_TEST_FILE: Perform WSD on Semcor (e.g. semcor_wn30.txt)
+    '''
+    # It's easier to create a user-friendly console application by using argparse
+    # See reference at the top of this script
+    parser = argparse.ArgumentParser(description="Convert Gloss WordNet from XML into SQLite DB.")
     
-    if all_synsets.by_sid('r00003483'):
-        synset = all_synsets.by_sid('r00003483')
-        print(synset.def_gloss)
+    # Positional argument(s)
+    parser.add_argument('-i', '--wng_location', help='Path to Gloss WordNet folder (default = ~/wordnet/glosstag')
+    parser.add_argument('-o', '--wng_db', help='Path to database file (default = ~/wordnet/glosstag.db')
+
+    # Optional argument(s)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-v", "--verbose", action="store_true")
+    group.add_argument("-q", "--quiet", action="store_true")
     
-    print ('-' * 80)
-    sk = 'at_bottom%4:02:00::'
-    if all_synsets.by_sk(sk):
-        print(unicode(all_synsets.by_sk(sk)).encode('UTF8'))
-    
-    # Final gloss
-    print ('-'*80)
-    ss = all_synsets.by_sid('r00003483')
-    if ss:
-        main_gloss = []
-        to_be_expanded = []
-        for token in ss.def_gloss:
-            main_gloss.append(token.text)
-            if token.sk:
-                to_be_expanded.append(token.sk)
-        print("Main gloss   : %s" % (main_gloss,))
-        print("To be expaned: %s" % (to_be_expanded,))
-        
-    
-    #t = Timer()
-    #t.start('Storing data to file...')
-    #pickle.dump(all_synsets, open('lelesk.model.dat', 'wb'))
-    #t.end('stored into file')
-    
-    # clear memory
-    #all_synsets = None
-    
-    #t.start('start to load again')
-    #all_ss = pickle.load(open('lelesk.model.dat', 'rb'))
-    #t.end('Done!')
-    #print("Loaded %s synsets from file" % (len(all_ss.synsets),))
-    # [TODO] Using pickle doesn't help at all, I'll take a look at this problem later
-    raw_input("Press any key to continue ...")
-        
+    # Parse input arguments
+    args = parser.parse_args()
+    # Now do something ...
+    wng_loc = args.wng_location if args.wng_location else WORDNET_30_GLOSSTAG_PATH
+    wng_db_loc = args.wng_db if args.wng_db else WORDNET_30_GLOSS_DB_PATH
+    convert(wng_loc, wng_db_loc)
+    pass # end main()
+
 if __name__ == "__main__":
     main()
+
+
+# Note:
+# How to use this tool
+# ./main.py candidates -i "dear|a"
