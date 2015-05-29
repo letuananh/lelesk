@@ -37,9 +37,11 @@ __maintainer__ = "Le Tuan Anh"
 __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
 
-import sys
+# import sys
 import os.path
 import argparse
+from lxml import etree
+from chirptext.leutile import StringTool, Counter
 from puchikarui import Schema#, DataSource, Table
 #-----------------------------------------------------------------------
 # CONFIGURATION
@@ -69,6 +71,12 @@ def header(msg):
     print(msg)
     print('')
 
+class TaggedWord:
+    def __init__(self, text, sk, lemma=None):
+        self.text = text
+        self.sk = sk
+        self.lemma = lemma
+
 class SynsetCollection:
     def __init__(self):
         self.synsets = []
@@ -93,7 +101,7 @@ class SynsetCollection:
             return self.sk_map[sk]
         else:
             return None
-            
+    
     def count(self):
         return len(self.synsets)
 
@@ -102,16 +110,54 @@ class SynsetCollection:
         for synset in another_scol.synsets:
             self.add(synset)
 
+class GlossRaw:
+
+    # Categories
+    ORIG = 'orig' 
+    TEXT = 'text'
+    
+    def __init__(self, synset, cat, gloss):
+        self.synset = synset
+        self.cat = cat
+        self.gloss = gloss
+
+class SenseKey:
+    def __init__(self, synset, sensekey):
+        self.synset = synset
+        self.sensekey = sensekey
+
+class Term:
+    def __init__(self, synset, term):
+        self.synset = synset
+        self.term = term
+        
 class Synset:
-    def __init__(self, sid, ofs, pos, orig=None, gloss=None):
+
+    def __init__(self, sid, ofs, pos):
         self.sid   = sid
         self.ofs   = ofs
         self.pos   = pos
         self.keys  = []
         self.terms = []
-        self.gloss_raw = []
-        self.gloss = []
+        self.raw_glosses = []
+        self.glosses = []
+
+    def add_term(self, term):
+        t = Term(self, term)
+        self.terms.append(t)
     
+    def add_sensekey(self, sk):
+        sensekey = SenseKey(self, sk)
+        self.keys.append(sensekey)
+
+    def add_raw_gloss(self, cat, gloss):
+        gr = GlossRaw(self, cat, gloss)
+        self.raw_glosses.append(gr)
+
+    def add_gloss(self, origid):
+        g = Gloss(self, origid)
+        self.glosses.append(g)
+
     def __str__(self):
         return "sid: %s | ofs: %s | pos: %s | keys: %s | terms: %s | glosses: %s" % (self.sid, self.ofs, self.pos, self.keys, self.terms, self.glosses)
    
@@ -174,7 +220,7 @@ class GlossItem:
     def __str__(self):
         return "%s (id:%s)" % (self.lemma, self.origid)
 
-class WNGlossTag:
+class XMLGWordNet:
     @staticmethod
     def element_to_Synset(element, memory_save=True):
         synset = Synset(element.get('id'),element.get('ofs'),element.get('pos')) if not memory_save else Synset(element.get('id'), '', '')
@@ -182,32 +228,37 @@ class WNGlossTag:
             if child.tag == 'terms':
                 for grandchild in child:
                     if grandchild.tag == 'term':
-                        synset.terms.append(StringTool.strip(grandchild.text))
+                        synset.add_term(StringTool.strip(grandchild.text))
             elif child.tag == 'keys':
                 for grandchild in child:
                     if grandchild.tag == 'sk':
-                        synset.keys.append(StringTool.strip(grandchild.text))
+                        synset.add_sensekey(StringTool.strip(grandchild.text))
             elif child.tag == 'gloss' and child.get('desc') == 'orig' and not memory_save:
                 if child[0].tag == 'orig':
-                    synset.gloss_orig = StringTool.strip(child[0].text)
+                    synset.add_raw_gloss(GlossRaw.ORIG, StringTool.strip(child[0].text))
             elif child.tag == 'gloss' and child.get('desc') == 'text' and not memory_save:
                 if child[0].tag == 'text':
-                    synset.gloss_text = StringTool.strip(child[0].text)
+                    synset.add_raw_gloss(GlossRaw.TEXT, StringTool.strip(child[0].text))
             elif child.tag == 'gloss' and child.get('desc') == 'wsd':
                 for grandchild in child:
-                    if grandchild.tag == 'def':
-                    #   if synset.sid == 'r00104099':
-                    #       etree.dump(element)
-                        WNGlossTag.rip_def_gloss(grandchild, synset, memory_save)
-                    elif grandchild.tag == 'ex' and len(grandchild) > 0:
-                        # flatten & rip all wf
-                        example_obj = synset.add_example()
-                        WNGlossTag.rip_wf_elem(grandchild, example_obj)
-                        # end each example token
+                    if grandchild.tag in ('def', 'ex'):
+                        gloss = synset.add_gloss(grandchild.get('id'))
+                        XMLGWordNet.rip_gloss(grandchild, gloss)
+                        # rip definition
+                        pass
         #print("A synset")
         # print len(element)
         #print ','.join([ '%s (%s)' % (x.tag, ','.join([y.tag for y in x])) for x in element ])
         return synset
+
+    @staticmethod
+    def rip_gloss(a_node, gloss):
+        ''' Parse a def node or ex node in Gloss WordNet
+        '''
+        # What to be expected in a node? aux/mwf/wf/cf/qf
+        # mwf <- wf | cf
+        # aux <- mwf | qf | wf | cf
+        # qf <- mwf | qf | wf | cf
 
     @staticmethod
     def read_xml_data(file_name, synsets=None, memory_save=True):
@@ -219,7 +270,7 @@ class WNGlossTag:
         for event, element in tree:
             #print("%s, %4s, %s" % (event, element.tag, element.text))
             if event == 'end' and element.tag == 'synset':
-                synset = WNGlossTag.element_to_Synset(element, memory_save)
+                synset = XMLGWordNet.element_to_Synset(element, memory_save)
                 element.clear()
                 synsets.add(synset)
                 # print("Synset: [%s]" % synset)
@@ -240,7 +291,7 @@ class WNGlossTag:
         for event, element in tree:
             #print("%s, %4s, %s" % (event, element.tag, element.text))
             if event == 'end' and element.tag == 'synset':
-                synset = WNGlossTag.element_to_Synset(element, memory_save)
+                synset = XMLGWordNet.element_to_Synset(element, memory_save)
                 simplified_synset = Synset(synset.sid, '', '')
                 simplified_synset.keys.extend(synset.keys)
                 simplified_synset.terms.extend(synset.terms)
@@ -287,8 +338,9 @@ class WNGlossTag:
                     tk.text = StringTool.strip(token_elem.text)
         # end each def token
 
-
 def process(a_file, db):
+    synsets = XMLGWordNet.read_xml_data(a_file)
+    print(synsets.count())
     pass
 
 def convert(wng_loc, wng_db_loc):
