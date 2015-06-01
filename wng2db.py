@@ -354,8 +354,11 @@ def convert(wng_loc, wng_db_loc):
     db = SchemaDemo.connect(wng_db_loc)
     header('Creating database file ...')
     db.ds().executefile(DB_INIT_SCRIPT)
-    for meta in db.meta.select():
-        print(meta)
+    try:
+        for meta in db.meta.select():
+            print(meta)
+    except Exception:
+        print("Error while setting up database ...")
 
     header('Extracting Gloss WordNet ...')
     process(xml_file, db)
