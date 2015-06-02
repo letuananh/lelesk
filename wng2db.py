@@ -47,9 +47,16 @@ from puchikarui import Schema#, DataSource, Table
 # CONFIGURATION
 #-----------------------------------------------------------------------
 WORDNET_30_PATH = os.path.expanduser('~/wordnet/sqlite-30.db')
+# WordNet SQLite can be downloaded from:
+#       http://sourceforge.net/projects/wnsql/files/wnsql3/sqlite/3.0/ 
+
 WORDNET_30_GLOSSTAG_PATH = os.path.expanduser('~/wordnet/glosstag')
 WORDNET_30_GLOSS_DB_PATH = os.path.expanduser('~/wordnet/glosstag.db')
+# Gloss WordNet can be downloaded from: 
+#       http://wordnet.princeton.edu/glosstag.shtml
+
 DB_INIT_SCRIPT = os.path.expanduser('./script/wngdb.sql')
+
 #-----------------------------------------------------------------------
 
 class SchemaDemo(Schema):
@@ -164,9 +171,10 @@ class Synset:
 class Gloss:
     def __init__(self, synset, origid):
         self.synset = synset
-        self.origid = origid
-        self.items = []
-        self.tags = []
+        self.origid = origid # Original ID from Gloss WordNet
+        self.items = []      # list of GlossItem objects
+        self.tags = []       # Sense tags
+        self.groups = []     # Other group labels
         pass
 
     def add_gloss_item(self, tag, lemma, pos, cat, coll, rdf, origid, sep = None, text = None):
@@ -178,6 +186,12 @@ class Gloss:
         tag = SenseTag(self, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id, text)
         self.tags.append(tag)
         return tag
+
+class GlossGroup:
+
+    def __init__(self, label=''):
+        self.label = label
+        self.items = []    # List of GlossItem belong to this group
 
 class SenseTag:
     def __init__(self, gloss, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id, text):
@@ -243,7 +257,7 @@ class XMLGWordNet:
                 for grandchild in child:
                     if grandchild.tag in ('def', 'ex'):
                         gloss = synset.add_gloss(grandchild.get('id'))
-                        XMLGWordNet.rip_gloss(grandchild, gloss)
+                        XMLGWordNet.parse_gloss(grandchild, gloss)
                         # rip definition
                         pass
         #print("A synset")
@@ -252,13 +266,40 @@ class XMLGWordNet:
         return synset
 
     @staticmethod
-    def rip_gloss(a_node, gloss):
+    def parse_gloss(a_node, gloss):
         ''' Parse a def node or ex node in Gloss WordNet
         '''
         # What to be expected in a node? aux/mwf/wf/cf/qf
         # mwf <- wf | cf
         # aux <- mwf | qf | wf | cf
         # qf <- mwf | qf | wf | cf
+        pass
+
+    @staticmethod
+    def parse_node(a_node, gloss):
+        pass
+
+    @staticmethod
+    def parse_wf(wf_node, gloss, memory_save=True):
+        ''' Parse a word feature node and then add to gloss object
+        '''
+        tag = wf_node.get('tag') if not memory_save else ''
+        lemma = wf_node.get('lemma') if not memory_save else ''
+        pos = wf_node.get('pos')
+        cat = wf_node.get('type')
+        coll = wf_node.get('coll')
+        rdf = wf_node.get('rdf')
+        origid = wf_node.get('id')
+        sep = wf_node.get('sep')
+        text = wf_node.text
+        return gloss.add_gloss_item(tag, lemma, pos, cat, coll, rdf, origid, sep, text)
+
+     @staticmethod
+    def parse_mwf(mwf_node, gloss, memory_save=True):
+        child_nodes = [] 
+        for child_node in mwf_node:
+            a_node = parse_node(child_node, gloss)
+            if a_node = 
 
     @staticmethod
     def read_xml_data(file_name, synsets=None, memory_save=True):
@@ -337,6 +378,8 @@ class XMLGWordNet:
                 else:
                     tk.text = StringTool.strip(token_elem.text)
         # end each def token
+
+#--------------------------------------------------------
 
 def process(a_file, db):
     synsets = XMLGWordNet.read_xml_data(a_file)
