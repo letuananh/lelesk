@@ -199,8 +199,8 @@ class Gloss:
         self.items.append(gt)
         return gt
 
-    def tag_item(self, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id, text):
-        tag = SenseTag(self, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id, text)
+    def tag_item(self, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id):
+        tag = SenseTag(self, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id)
         self.tags.append(tag)
         return tag
 
@@ -217,21 +217,19 @@ class GlossGroup:
         self.items = []    # List of GlossItem belong to this group
 
 class SenseTag:
-    def __init__(self, gloss, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id, text):
+    def __init__(self, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id):
         self.id = None
-        self.cat = cat
-        self.tag = tag
-        self.glob = glob
-        self.glemma = glemma
-        self.coll = coll
-        self.origid = origid
-        self.sid = sid
-        self.gloss = gloss
-        self.sk = sk
-        self.lemma = lemma
-        self.tag_id = tag_id
-        self.text = text
-        self.item = item
+        self.cat = cat              # coll, tag, etc.      
+        self.tag = tag        # from glob tag
+        self.glob = glob      # from glob tag
+        self.glemma = glemma  # from glob tag
+        self.coll = coll      # from cf tag
+        self.origid = origid  # from id tag
+        self.sid = sid              # infer from sk & lemma
+        self.sk = sk          # from id tag
+        self.lemma = lemma    # from id tag
+        self.tag_id = tag_id  # from id tag
+        self.item = item            # ref to gloss item (we can access gloss obj via self.item)
 
     def __str__(self):
         return "%s (sk:%s)" % (self.lemma, self.sk)
@@ -255,15 +253,15 @@ class GlossItem:
         return str(self)
     
     def get_lemma(self):
-        l = self.lemma if self.lemma else self.text
-        return StringTool.strip(l)
+        return self.lemma if self.lemma else self.text
+        
 
     def __repr__(self):
         # return "l:`%s'" % (self.get_lemma())
         return "'%s'" % self.get_lemma()
 
     def __str__(self):
-        return "%s (id:%s)" % (self.lemma, self.origid)
+        return "%s (id:%s)" % (self.get_lemma(), self.origid)
 
 class XMLGWordNet:
     @staticmethod
@@ -288,7 +286,7 @@ class XMLGWordNet:
                 for grandchild in child:
                     if grandchild.tag in ('def', 'ex'):
                         gloss = synset.add_gloss(grandchild.get('id'), StringTool.strip(grandchild.tag))
-                        XMLGWordNet.parse_gloss(grandchild, gloss)
+                        XMLGWordNet.parse_gloss(grandchild, gloss, memory_save)
                         # rip definition
                         pass
         #print("A synset")
@@ -297,7 +295,7 @@ class XMLGWordNet:
         return synset
 
     @staticmethod
-    def parse_gloss(a_node, gloss):
+    def parse_gloss(a_node, gloss, memory_save):
         ''' Parse a def node or ex node in Gloss WordNet
         '''
         # What to be expected in a node? aux/mwf/wf/cf/qf
@@ -305,23 +303,25 @@ class XMLGWordNet:
         # aux <- mwf | qf | wf | cf
         # qf <- mwf | qf | wf | cf
         for child_node in a_node:
-            XMLGWordNet.parse_node(child_node, gloss)
+            XMLGWordNet.parse_node(child_node, gloss, memory_save)
         pass
 
     @staticmethod
-    def parse_node(a_node, gloss):
+    def parse_node(a_node, gloss, memory_save):
         if a_node.tag == 'wf':
-            return XMLGWordNet.parse_wf(a_node, gloss)
+            return XMLGWordNet.parse_wf(a_node, gloss, memory_save)
         elif a_node.tag == 'cf':
-            return XMLGWordNet.parse_cf(a_node, gloss)
+            return XMLGWordNet.parse_cf(a_node, gloss, memory_save)
         elif a_node.tag == 'mwf':
-            return XMLGWordNet.parse_mwf(a_node, gloss)
+            return XMLGWordNet.parse_mwf(a_node, gloss, memory_save)
+        elif a_node.tag == 'qf':
+            return XMLGWordNet.parse_qf(a_node, gloss, memory_save)
         else:
             print("WARNING: I don't know %s tag" % (a_node.tag))
         pass
 
     @staticmethod
-    def parse_wf(wf_node, gloss, memory_save=True):
+    def parse_wf(wf_node, gloss, memory_save):
         ''' Parse a word feature node and then add to gloss object
         '''
         tag = wf_node.get('tag') if not memory_save else ''
@@ -338,27 +338,43 @@ class XMLGWordNet:
         return wf_obj
 
     @staticmethod
-    def parse_cf(cf_node, gloss, memory_save=True):
+    def parse_cf(cf_node, gloss, memory_save):
         ''' Parse a word feature node and then add to gloss object
         '''
         tag = cf_node.get('tag') if not memory_save else ''
-        lemma = cf_node.get('lemma') if not memory_save else ''
+        lemma = StringTool.strip(cf_node.get('lemma')) if not memory_save else ''
         pos = cf_node.get('pos')
         cat = cf_node.get('type')
         coll = cf_node.get('coll')
         rdf = cf_node.get('rdf')
         origid = cf_node.get('id')
         sep = cf_node.get('sep')
-        text = cf_node.text
+        text = StringTool.strip(cf_node.text)
         cf_obj =  gloss.add_gloss_item(tag, lemma, pos, cat, coll, rdf, origid, sep, text)
-        # Parse glob & id if possible
+        if origid.startswith('r00001740'):
+            print("%s - lemma='%s' | text='%s'" % (cf_obj, lemma, text))
+        # Parse glob info if it's available
+        for child_node in cf_node:
+            if child_node.tag == 'glob':
+                glob_tag = child_node.get('tag')
+                glob_glob = child_node.get('glob')
+                glob_lemma = child_node.get('lemma')
+                glob_coll = child_node.get('coll')
+                glob_id = child_node.get('id')
         return cf_obj
 
     @staticmethod
-    def parse_mwf(mwf_node, gloss, memory_save=True):
+    def parse_mwf(mwf_node, gloss, memory_save):
         child_nodes = [] 
         for child_node in mwf_node:
-            a_node = parse_node(child_node, gloss)
+            a_node = XMLGWordNet.parse_node(child_node, gloss, memory_save)
+            # if a_node = 
+
+    @staticmethod
+    def parse_qf(qf_node, gloss, memory_save):
+        child_nodes = [] 
+        for child_node in qf_node:
+            a_node = XMLGWordNet.parse_node(child_node, gloss, memory_save)
             # if a_node = 
 
     @staticmethod
@@ -441,7 +457,7 @@ class XMLGWordNet:
 
 def dev_mode():
     xml_file = os.path.expanduser('~/wordnet/glosstag/merged/test.xml')
-    synsets = XMLGWordNet.read_xml_data(xml_file)
+    synsets = XMLGWordNet.read_xml_data(xml_file, memory_save=False)
     ss = synsets[0]
     print("Synset: %s" % ss)
     for gloss in ss.glosses:

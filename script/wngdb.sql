@@ -61,20 +61,19 @@ CREATE TABLE IF NOT EXISTS glossitem (
 );
 
 CREATE TABLE IF NOT EXISTS sensetag (
-       id INTEGER PRIMARY KEY
-       ,cat TEXT -- Type (date/range/coll/etc.)
-       ,tag TEXT
-       ,glob TEXT
-       ,glob_lemma TEXT
-       ,coll TEXT
-       ,origid TEXT -- Original ID
-       ,sid TEXT	--Synset ID
-       ,gid INTEGER
-       ,sk TEXT -- sk from id element
-       ,lemma TEXT
-       ,tag_id TEXT --original tag ID
-       ,text TEXT --original text in tagged sense
-       ,itemid INTEGER
+        id INTEGER PRIMARY KEY
+       ,cat TEXT        -- Type (date/range/coll/etc.)
+       ,tag TEXT        -- from glob tag
+       ,glob TEXT       -- from glob tag
+       ,glob_lemma TEXT -- from glob tag
+       ,glob_id    TEXT -- from glob tag
+       ,coll TEXT       
+       ,sid TEXT        -- Synset ID
+       ,gid INTEGER     -- ref to gloss id
+       ,sk TEXT         -- sk from id tag
+       ,origid TEXT     -- Original ID from id tag
+       ,lemma TEXT      -- from id tag
+       ,itemid INTEGER  -- ref to glossitem id
        ,FOREIGN KEY (itemid) REFERENCES glossitem(id) 
        ,FOREIGN KEY (gid) REFERENCES gloss(gid) 
 );
