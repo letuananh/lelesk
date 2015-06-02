@@ -96,7 +96,10 @@ class SynsetCollection:
         if synset.keys:
             for key in synset.keys:
                 self.sk_map[key] = synset
-        
+    
+    def __getitem__(self, name):
+        return self.synsets[name]
+
     def by_sid(self, sid):
         if sid in self.sid_map:
             return self.sid_map[sid]
@@ -133,10 +136,16 @@ class SenseKey:
         self.synset = synset
         self.sensekey = sensekey
 
+    def __repr__(self):
+        return "sk:`%s'" % self.sensekey
+
 class Term:
     def __init__(self, synset, term):
         self.synset = synset
         self.term = term
+
+    def __repr__(self):
+        return "t:`%s'" % self.term
         
 class Synset:
 
@@ -161,17 +170,18 @@ class Synset:
         gr = GlossRaw(self, cat, gloss)
         self.raw_glosses.append(gr)
 
-    def add_gloss(self, origid):
-        g = Gloss(self, origid)
+    def add_gloss(self, origid, cat):
+        g = Gloss(self, origid, cat)
         self.glosses.append(g)
 
     def __str__(self):
         return "sid: %s | ofs: %s | pos: %s | keys: %s | terms: %s | glosses: %s" % (self.sid, self.ofs, self.pos, self.keys, self.terms, self.glosses)
    
 class Gloss:
-    def __init__(self, synset, origid):
+    def __init__(self, synset, origid, cat):
         self.synset = synset
         self.origid = origid # Original ID from Gloss WordNet
+        self.cat = cat
         self.items = []      # list of GlossItem objects
         self.tags = []       # Sense tags
         self.groups = []     # Other group labels
@@ -186,6 +196,12 @@ class Gloss:
         tag = SenseTag(self, item, cat, tag, glob, glemma, coll, origid, sid, sk, lemma, tag_id, text)
         self.tags.append(tag)
         return tag
+
+    def __repr__(self):
+        return "gloss-%s" % (self.cat)
+
+    def __str__(self):
+        return "{Gloss oid='%s' type='%s'}" % (self.origid, self.cat)   
 
 class GlossGroup:
 
@@ -256,7 +272,7 @@ class XMLGWordNet:
             elif child.tag == 'gloss' and child.get('desc') == 'wsd':
                 for grandchild in child:
                     if grandchild.tag in ('def', 'ex'):
-                        gloss = synset.add_gloss(grandchild.get('id'))
+                        gloss = synset.add_gloss(grandchild.get('id'), StringTool.strip(grandchild.tag))
                         XMLGWordNet.parse_gloss(grandchild, gloss)
                         # rip definition
                         pass
@@ -294,12 +310,12 @@ class XMLGWordNet:
         text = wf_node.text
         return gloss.add_gloss_item(tag, lemma, pos, cat, coll, rdf, origid, sep, text)
 
-     @staticmethod
+    @staticmethod
     def parse_mwf(mwf_node, gloss, memory_save=True):
         child_nodes = [] 
         for child_node in mwf_node:
             a_node = parse_node(child_node, gloss)
-            if a_node = 
+            # if a_node = 
 
     @staticmethod
     def read_xml_data(file_name, synsets=None, memory_save=True):
@@ -379,6 +395,14 @@ class XMLGWordNet:
                     tk.text = StringTool.strip(token_elem.text)
         # end each def token
 
+def dev_mode():
+    xml_file = os.path.expanduser('~/wordnet/glosstag/merged/test.xml')
+    synsets = XMLGWordNet.read_xml_data(xml_file)
+    ss = synsets[0]
+    print("Synset: %s" % ss)
+    for gloss in ss.glosses:
+        print(gloss)
+
 #--------------------------------------------------------
 
 def process(a_file, db):
@@ -424,6 +448,7 @@ def main():
     # Positional argument(s)
     parser.add_argument('-i', '--wng_location', help='Path to Gloss WordNet folder (default = ~/wordnet/glosstag')
     parser.add_argument('-o', '--wng_db', help='Path to database file (default = ~/wordnet/glosstag.db')
+    parser.add_argument('-d', '--dev', help='Development mode', action='store_true')
 
     # Optional argument(s)
     group = parser.add_mutually_exclusive_group()
@@ -433,9 +458,12 @@ def main():
     # Parse input arguments
     args = parser.parse_args()
     # Now do something ...
-    wng_loc = args.wng_location if args.wng_location else WORDNET_30_GLOSSTAG_PATH
-    wng_db_loc = args.wng_db if args.wng_db else WORDNET_30_GLOSS_DB_PATH
-    convert(wng_loc, wng_db_loc)
+    if args.dev:
+        dev_mode()
+    else:
+        wng_loc = args.wng_location if args.wng_location else WORDNET_30_GLOSSTAG_PATH
+        wng_db_loc = args.wng_db if args.wng_db else WORDNET_30_GLOSS_DB_PATH
+        convert(wng_loc, wng_db_loc)
     pass # end main()
 
 if __name__ == "__main__":
