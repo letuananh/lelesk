@@ -1,5 +1,15 @@
 -- SQLite DB for Gloss WordNet
 
+DROP TABLE IF EXISTS meta;
+DROP TABLE IF EXISTS synset;
+DROP TABLE IF EXISTS term;
+DROP TABLE IF EXISTS sensekey;
+DROP TABLE IF EXISTS gloss_raw;
+DROP TABLE IF EXISTS gloss;
+DROP TABLE IF EXISTS glossitem;
+DROP TABLE IF EXISTS sensetag;
+
+
 CREATE TABLE IF NOT EXISTS meta  (
         title TEXT
        ,license TEXT
@@ -16,6 +26,7 @@ CREATE TABLE IF NOT EXISTS synset (
        id TEXT PRIMARY KEY -- Synset ID
        ,offset TEXT
        ,pos TEXT
+       ,origid TEXT -- Original ID from Gloss WordNet
 );
 
 CREATE TABLE IF NOT EXISTS term (
