@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS gloss_raw (
 CREATE TABLE IF NOT EXISTS gloss (
        id INTEGER PRIMARY KEY -- Gloss ID
        ,origid TEXT -- Original ID
-       ,sid TEXT  -- fkey to synsetid
+       ,sid TEXT    -- fkey to synsetid
+       ,cat TEXT    -- category (def/ex)
        ,FOREIGN KEY (sid) REFERENCES synset(sid) 
 );
 

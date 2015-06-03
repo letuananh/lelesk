@@ -41,6 +41,7 @@ __status__ = "Prototype"
 
 from glosswordnet.models import SynsetCollection, Synset, GlossRaw, SenseKey, Term, Gloss, GlossGroup, SenseTag, GlossItem
 from puchikarui import Schema, Execution#, DataSource, Table
+import itertools
 #-----------------------------------------------------------------------
 
 class GWordNetSchema(Schema):
@@ -48,10 +49,14 @@ class GWordNetSchema(Schema):
         Schema.__init__(self, data_source)
         self.add_table('meta', 'title license WNVer url maintainer'.split())
         self.add_table('synset', 'id offset pos'.split())
-        self.add_table('gloss', 'id origid sid'.split())
+        
+        self.add_table('term', 'sid term'.split())
+        self.add_table('gloss_raw', 'sid cat gloss'.split())
+        self.add_table('sensekey', 'sid sensekey'.split())
+        
+        self.add_table('gloss', 'id origid sid cat'.split())
         self.add_table('glossitem', 'id ord gid tag lemma pos cat coll rdf sep text origid'.split())
         self.add_table('sensetag', 'id cat tag glob glob_lemma glob_id coll sid gid sk origid lemma itemid'.split())
-
 #-----------------------------------------------------------------------
 
 class SQLiteGWordNet:
@@ -77,8 +82,42 @@ class SQLiteGWordNet:
     
     def insert_synsets(self, synsets):
         with Execution(self.schema) as exe:
+            # synset;
+            glossid_seed = itertools.count()
+            glossitemid_seed = itertools.count()
+            sensetagid_seed = itertools.count()
             for synset in synsets:
                 exe.schema.synset.insert([synset.sid, synset.ofs, synset.pos])
+                # term;
+                for term in synset.terms:
+                    exe.schema.term.insert([synset.sid, term.term])
+                # sensekey;
+                for sk in synset.keys:
+                    exe.schema.sensekey.insert([synset.sid, sk.sensekey])
+                # gloss_raw;
+                for gloss_raw in synset.raw_glosses:
+                    exe.schema.gloss_raw.insert([synset.sid, gloss_raw.cat, gloss_raw.gloss])
+                # gloss; DB: id origid sid cat | OBJ: gid origid cat
+                for gloss in synset.glosses:
+                    gloss.gid = next(glossid_seed)
+                    exe.schema.gloss.insert([gloss.gid, gloss.origid, synset.sid, gloss.cat])
+                    # glossitem;
+                    # OBJ | gloss, order, tag, lemma, pos, cat, coll, rdf, origid, sep, text
+                    # DB  | id ord gid tag lemma pos cat coll rdf sep text origid
+                    itemid_map = {}
+                    for item in gloss.items:
+                        item.itemid = next(glossitemid_seed)
+                        itemid_map[item.origid] = item.itemid
+                        exe.schema.glossitem.insert([item.itemid, item.order, gloss.gid, item.tag, item.lemma, item.pos
+                        , item.cat, item.coll, item.rdf, item.sep, item.text, item.origid])
+                    # sensetag;
+                    for tag in gloss.tags:
+                        
+                        # OBJ: tagid cat, tag, glob, glemma, gid, coll, origid, sid, sk, lemma
+                        # DB: id cat tag glob glob_lemma glob_id coll sid gid sk origid lemma itemid
+                        tag.tagid = next(sensetagid_seed)
+                        exe.schema.sensetag.insert([tag.tagid, tag.cat, tag.tag, tag.glob, tag.glemma, 
+                        tag.glob_id, tag.coll, '', gloss.gid, tag.sk, tag.origid, tag.lemma, itemid_map[tag.item.origid] ])
             exe.ds.commit()
         pass
         

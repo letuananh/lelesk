@@ -163,6 +163,7 @@ class Synset:
 class Gloss:
     def __init__(self, synset, origid, cat):
         self.synset = synset
+        self.gid = -1
         self.origid = origid # Original ID from Gloss WordNet
         self.cat = cat
         self.items = []      # list of GlossItem objects
@@ -170,13 +171,14 @@ class Gloss:
         self.groups = []     # Other group labels
         pass
 
-    def add_gloss_item(self, tag, lemma, pos, cat, coll, rdf, origid, sep = None, text = None):
+    def add_gloss_item(self, tag, lemma, pos, cat, coll, rdf, origid, sep=None, text=None):
         gt = GlossItem(self, tag, lemma, pos, cat, coll, rdf, origid, sep, text)
+        gt.order = len(self.items)
         self.items.append(gt)
         return gt
 
-    def tag_item(self, item, cat, tag, glob, glemma, gid, coll, origid, sid, sk, lemma):
-        tag = SenseTag(item, cat, tag, glob, glemma, gid, coll, origid, sid, sk, lemma)
+    def tag_item(self, item, cat, tag, glob, glemma, glob_id, coll, origid, sid, sk, lemma):
+        tag = SenseTag(item, cat, tag, glob, glemma, glob_id, coll, origid, sid, sk, lemma)
         self.tags.append(tag)
         return tag
 
@@ -190,8 +192,9 @@ class GlossItem:
     ''' A word token (belong to a gloss)
     '''
     def __init__(self, gloss, tag, lemma, pos, cat, coll, rdf, origid, sep=None, text=None):
-        self.id = None
+        self.itemid = None
         self.gloss = gloss
+        self.order = -1
         self.tag = StringTool.strip(tag)
         self.lemma = StringTool.strip(lemma)
         self.pos = StringTool.strip(pos)
@@ -241,16 +244,17 @@ class GlossGroup:
 class SenseTag:
     ''' Sense annotation object
     '''
-    def __init__(self, item, cat, tag, glob, glemma, gid, coll, origid, sid, sk, lemma):
-        self.id = None
+    def __init__(self, item, cat, tag, glob, glemma, glob_id, coll, origid, sid, sk, lemma):
+        self.tagid = None       # tag id
         self.cat = cat              # coll, tag, etc.      
         self.tag = tag        # from glob tag
         self.glob = glob      # from glob tag
         self.glemma = glemma  # from glob tag
-        self.gid    = gid     # from glob tag
+        self.glob_id    = glob_id     # from glob tag
         self.coll = coll      # from cf tag
         self.origid = origid  # from id tag
         self.sid = sid              # infer from sk & lemma
+        self.gid = item.gloss.gid   # gloss ID
         self.sk = sk          # from id tag
         self.lemma = lemma    # from id tag
         self.item = item            # ref to gloss item (we can access gloss obj via self.item)
@@ -260,4 +264,4 @@ class SenseTag:
 
     def __str__(self):
         return "%s (sk:%s | cat:%s | tag:%s | glob:%s | glemma:%s | gid:%s | coll:%s | origid: %s)" % (
-            self.lemma, self.sk, self.cat, self.tag, self.glob, self.glemma, self.gid, self.coll, self.origid)
+            self.lemma, self.sk, self.cat, self.tag, self.glob, self.glemma, self.glob_id, self.coll, self.origid)

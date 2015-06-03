@@ -99,31 +99,41 @@ def dev_mode():
 
 #--------------------------------------------------------
 
-def xml2db(xml_file, db):
+def xml2db(xml_files, db):
     t = Timer()
-    t.start('Extracting Gloss WordNet (XML) ...')
+    
     xmlgwn = XMLGWordNet()
-    xmlgwn.read(xml_file)
-    t.end("XML data has been extracted")
+    for xml_file in xml_files:
+        t.start('Extracting Gloss WordNet (XML): %s' % xml_file)
+        xmlgwn.read(xml_file)
+        t.end("XML data has been extracted")
     
     t.start('Inserting data into SQLite database')
     db.insert_synsets(xmlgwn.synsets)
     t.end('Insertion completed.')
     pass
 
-def convert(wng_loc, wng_db_loc):
+def convert(wng_loc, wng_db_loc, createdb):
     merged_folder = os.path.join(wng_loc, 'merged')
-    xml_file = os.path.join(merged_folder, 'test.xml')
+    
     print("Path to glosstag folder: %s" % (merged_folder))
-    print("Processing file  : %s" % (xml_file))
     print("Path to output database: %s" % (wng_db_loc))
     print("Script to execute: %s" % (DB_INIT_SCRIPT))
 
     db = SQLiteGWordNet(wng_db_loc)
-    header('Preparing database file ...')
-    db.setup(DB_INIT_SCRIPT)
+    if createdb:
+        header('Preparing database file ...')
+        db.setup(DB_INIT_SCRIPT)
     #--
-    xml2db(xml_file, db)
+    xmlfiles = [
+        #os.path.join(merged_folder, 'test.xml')
+        os.path.join(merged_folder, 'adv.xml')
+        ,os.path.join(merged_folder, 'adj.xml')
+        ,os.path.join(merged_folder, 'verb.xml')
+        ,os.path.join(merged_folder, 'noun.xml')
+    ]
+    header('Importing data from XML to SQLite')
+    xml2db(xmlfiles, db)
     pass
 
 def main():
@@ -143,6 +153,7 @@ def main():
     parser.add_argument('-i', '--wng_location', help='Path to Gloss WordNet folder (default = ~/wordnet/glosstag')
     parser.add_argument('-o', '--wng_db', help='Path to database file (default = ~/wordnet/glosstag.db')
     parser.add_argument('-d', '--dev', help='Development mode', action='store_true')
+    parser.add_argument('-x', '--extract_only', help='Only extract data (do NOT initialize database schema)', action='store_true')
 
     # Optional argument(s)
     group = parser.add_mutually_exclusive_group()
@@ -157,7 +168,7 @@ def main():
     else:
         wng_loc = args.wng_location if args.wng_location else WORDNET_30_GLOSSTAG_PATH
         wng_db_loc = args.wng_db if args.wng_db else WORDNET_30_GLOSS_DB_PATH
-        convert(wng_loc, wng_db_loc)
+        convert(wng_loc, wng_db_loc, not args.extract_only)
     pass # end main()
 
 if __name__ == "__main__":
