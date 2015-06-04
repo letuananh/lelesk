@@ -181,4 +181,17 @@ class SQLiteGWordNet:
             else:
                 return None
         pass
+
+    def get_synsets_by_term(self, term, pos):
+        with Execution(self.schema) as exe:
+            # synset;
+            if pos:
+                results = exe.schema.synset.select(where='pos = ? AND id IN (SELECT sid FROM term where term=?)', values=[pos, term])
+            else:
+                results = exe.schema.synset.select(where='id IN (SELECT sid FROM term where term=?)', values=[term])
+            if results:
+                return self.results_to_synsets(results, exe)
+            else:
+                return None
+        pass
         

@@ -5,6 +5,21 @@
 A tool for converting Gloss WordNet into SQLite
 Latest version can be found at https://github.com/letuananh/lelesk
 
+Usage:
+    # Search sysets by term (word form) = `love' and POS is verb
+    python3 gwn2db.py -t 'love' -p 'v'
+
+    # Search synsets by synset-id
+    python3 gwn2db.py -s 'v01775535'
+
+    # Search synsets by sensekey
+    python3 gwn2db.py -k 'love%2:37:01::'
+
+    # Create SQLite database for searching
+    python3 gwn2db.py -c -i ~/wordnet/glosstag -o ~/wordnet/gwn.db
+
+
+
 @author: Le Tuan Anh <tuananh.ke@gmail.com>
 '''
 
@@ -70,17 +85,27 @@ def header(msg):
 def get_synset_by_id(wng_db_loc, synsetid):
     db = SQLiteGWordNet(wng_db_loc)
     synsets = db.get_synset_by_id(synsetid)
-    for synset in synsets:
-        dump_synset(synset) 
+    dump_synsets(synsets)
 
 def get_synset_by_sk(wng_db_loc, sk):
     db = SQLiteGWordNet(wng_db_loc)
     synsets = db.get_synset_by_sk(sk)
-    for synset in synsets:
-        dump_synset(synset) 
-
+    dump_synsets(synsets)
+    
+def get_synsets_by_term(wng_db_loc, t, pos):
+    db = SQLiteGWordNet(wng_db_loc)
+    synsets = db.get_synsets_by_term(t, pos)
+    dump_synsets(synsets)
 
 #-----------------------------------------------------------------------
+
+def dump_synsets(synsets):
+    if synsets:
+        for synset in synsets:
+            dump_synset(synset)
+        print("Found %s synset(s)" % synsets.count())
+    else:
+        print("None was found!")
 
 def dump_synset(ss):
     '''
@@ -177,6 +202,9 @@ def main():
     parser.add_argument('-d', '--dev', help='Dev mode (do not use)', action='store_true')
     parser.add_argument('-s', '--synset', help='Retrieve synset information by synsetid')
     parser.add_argument('-k', '--sensekey', help='Retrieve synset information by sensekey')
+    parser.add_argument('-t', '--term', help='Retrieve synset information by term (word form)')
+    parser.add_argument('-p', '--pos', help='Specify part-of-speech')
+
 
 
     # Optional argument(s)
@@ -199,6 +227,8 @@ def main():
         get_synset_by_id(wng_db_loc, args.synset)
     elif args.sensekey:
         get_synset_by_sk(wng_db_loc, args.sensekey)
+    elif args.term:
+        get_synsets_by_term(wng_db_loc, args.term, args.pos)
     else:
         parser.print_help()
     pass # end main()
