@@ -42,6 +42,7 @@ import os.path
 import argparse
 from chirptext.leutile import StringTool, Counter, Timer
 from glosswordnet import XMLGWordNet, SQLiteGWordNet
+import itertools
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
@@ -66,10 +67,18 @@ def header(msg):
 
 #-----------------------------------------------------------------------
 
-def get_synset(wng_db_loc, synsetid):
+def get_synset_by_id(wng_db_loc, synsetid):
     db = SQLiteGWordNet(wng_db_loc)
-    synset = db.get_synset(synsetid)
-    dump_synset(synset)
+    synsets = db.get_synset_by_id(synsetid)
+    for synset in synsets:
+        dump_synset(synset) 
+
+def get_synset_by_sk(wng_db_loc, sk):
+    db = SQLiteGWordNet(wng_db_loc)
+    synsets = db.get_synset_by_sk(sk)
+    for synset in synsets:
+        dump_synset(synset) 
+
 
 #-----------------------------------------------------------------------
 
@@ -86,8 +95,9 @@ def dump_synset(ss):
 
     print('')
 
+    gloss_count = itertools.count(1)
     for gloss in ss.glosses:
-        print("Gloss: %s" % gloss)
+        print("Gloss #%s: %s" % (next(gloss_count), gloss))
         for item in gloss.items:
             print("\t%s - { %s }" % (item.get_gramword(), item))
         print("\t" + ("-" * 10))
@@ -165,7 +175,8 @@ def main():
     parser.add_argument('-o', '--wng_db', help='Path to database file (default = ~/wordnet/glosstag.db')
     parser.add_argument('-c', '--create', help='Create DB and then import data', action='store_true')
     parser.add_argument('-d', '--dev', help='Dev mode (do not use)', action='store_true')
-    parser.add_argument('-s', '--synset', help='Retrieve synset information')
+    parser.add_argument('-s', '--synset', help='Retrieve synset information by synsetid')
+    parser.add_argument('-k', '--sensekey', help='Retrieve synset information by sensekey')
 
 
     # Optional argument(s)
@@ -185,7 +196,9 @@ def main():
     elif args.create:
         convert(wng_loc, wng_db_loc, True)
     elif args.synset:
-        get_synset(wng_db_loc, args.synset)
+        get_synset_by_id(wng_db_loc, args.synset)
+    elif args.sensekey:
+        get_synset_by_sk(wng_db_loc, args.sensekey)
     else:
         parser.print_help()
     pass # end main()
