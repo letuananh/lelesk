@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS synset (
        id TEXT PRIMARY KEY -- Synset ID
        ,offset TEXT
        ,pos TEXT
-       ,origid TEXT -- Original ID from Gloss WordNet
 );
 
 CREATE TABLE IF NOT EXISTS term (
@@ -93,10 +92,23 @@ CREATE TABLE IF NOT EXISTS sensetag (
 
 
 CREATE INDEX IF NOT EXISTS synset_id ON synset (id);
+CREATE INDEX IF NOT EXISTS synset_ofs ON synset (offset);
+CREATE INDEX IF NOT EXISTS synset_pos ON synset (pos);
+
+CREATE INDEX IF NOT EXISTS term_sid ON term (sid);
+CREATE INDEX IF NOT EXISTS term_term ON term (term);
+
+CREATE INDEX IF NOT EXISTS gloss_raw_sid ON gloss_raw (sid);
+
+CREATE INDEX IF NOT EXISTS sensekey_sid ON sensekey (sid);
+CREATE INDEX IF NOT EXISTS sensekey_sensekey ON sensekey (sensekey);
+
 CREATE INDEX IF NOT EXISTS gloss_id ON gloss (id);
 CREATE INDEX IF NOT EXISTS gloss_sid ON gloss (sid);
+
 CREATE INDEX IF NOT EXISTS glossitem_id ON glossitem (id);
 CREATE INDEX IF NOT EXISTS glossitem_gid ON glossitem (gid);
+
 CREATE INDEX IF NOT EXISTS sensetag_id ON sensetag (id);
 CREATE INDEX IF NOT EXISTS sensetag_itemid ON sensetag (itemid);
 CREATE INDEX IF NOT EXISTS sensetag_gid ON sensetag (gid);

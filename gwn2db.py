@@ -101,14 +101,16 @@ def dev_mode():
 
 def xml2db(xml_files, db):
     t = Timer()
-    
+
+    header("Extracting Gloss WordNet (XML)")
     xmlgwn = XMLGWordNet()
     for xml_file in xml_files:
-        t.start('Extracting Gloss WordNet (XML): %s' % xml_file)
+        t.start('Reading file: %s' % xml_file)
         xmlgwn.read(xml_file)
-        t.end("XML data has been extracted")
-    
-    t.start('Inserting data into SQLite database')
+        t.end("Extraction completed %s" % xml_file)
+
+    header("Inserting dat into SQLite database")
+    t.start()
     db.insert_synsets(xmlgwn.synsets)
     t.end('Insertion completed.')
     pass

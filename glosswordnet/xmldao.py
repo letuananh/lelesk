@@ -151,12 +151,16 @@ class XMLGWordNet:
         lemma = StringTool.strip(id_node.get('lemma'))
 
         if tag_obj is None:
-            glossitem.gloss.tag_item(glossitem, '', '', '', '', '', coll, origid, '', sk, lemma)
+            tag_obj = glossitem.gloss.tag_item(glossitem, '', '', '', '', '', coll, origid, '', sk, lemma)
         else:
             tag_obj.sk     = sk
             tag_obj.origid = origid
             tag_obj.coll   = coll
             tag_obj.lemma  = lemma
+
+        # WEIRD STUFF: lemma="purposefully ignored" sk="purposefully_ignored%0:00:00::"
+        if lemma == 'purposefully ignored' and sk == "purposefully_ignored%0:00:00::":
+            tag_obj.cat = 'PURPOSEFULLY_IGNORED'
 
     def parse_wf(self, wf_node, gloss):
         ''' Parse a word feature node and then add to gloss object
