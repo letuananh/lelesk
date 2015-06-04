@@ -84,6 +84,11 @@ class SynsetCollection:
         for synset in another_scol.synsets:
             self.add(synset)
 
+    def new_synset(self, sid, ofs, pos):
+        ss = Synset(sid, ofs, pos)
+        self.add(ss)
+        return ss
+
 class GlossRaw:
     ''' Raw glosses extracted from WordNet Gloss Corpus.
         Each synset has a orig_gloss, a text_gloss and a wsd_gloss
@@ -152,8 +157,8 @@ class Synset:
         gr = GlossRaw(self, cat, gloss)
         self.raw_glosses.append(gr)
 
-    def add_gloss(self, origid, cat):
-        g = Gloss(self, origid, cat)
+    def add_gloss(self, origid, cat, gid=-1):
+        g = Gloss(self, origid, cat, gid)
         self.glosses.append(g)
         return g
 
@@ -161,9 +166,9 @@ class Synset:
         return "sid: %s | ofs: %s | pos: %s | keys: %s | terms: %s | glosses: %s" % (self.sid, self.ofs, self.pos, self.keys, self.terms, self.glosses)
    
 class Gloss:
-    def __init__(self, synset, origid, cat):
+    def __init__(self, synset, origid, cat, gid):
         self.synset = synset
-        self.gid = -1
+        self.gid = gid
         self.origid = origid # Original ID from Gloss WordNet
         self.cat = cat
         self.items = []      # list of GlossItem objects
@@ -171,14 +176,14 @@ class Gloss:
         self.groups = []     # Other group labels
         pass
 
-    def add_gloss_item(self, tag, lemma, pos, cat, coll, rdf, origid, sep=None, text=None):
-        gt = GlossItem(self, tag, lemma, pos, cat, coll, rdf, origid, sep, text)
+    def add_gloss_item(self, tag, lemma, pos, cat, coll, rdf, origid, sep=None, text=None, itemid=-1):
+        gt = GlossItem(self, tag, lemma, pos, cat, coll, rdf, origid, sep, text,itemid)
         gt.order = len(self.items)
         self.items.append(gt)
         return gt
 
-    def tag_item(self, item, cat, tag, glob, glemma, glob_id, coll, origid, sid, sk, lemma):
-        tag = SenseTag(item, cat, tag, glob, glemma, glob_id, coll, origid, sid, sk, lemma)
+    def tag_item(self, item, cat, tag, glob, glemma, glob_id, coll, origid, sid, sk, lemma, tagid=-1):
+        tag = SenseTag(item, cat, tag, glob, glemma, glob_id, coll, origid, sid, sk, lemma, tagid)
         self.tags.append(tag)
         return tag
 
@@ -191,8 +196,8 @@ class Gloss:
 class GlossItem:
     ''' A word token (belong to a gloss)
     '''
-    def __init__(self, gloss, tag, lemma, pos, cat, coll, rdf, origid, sep=None, text=None):
-        self.itemid = None
+    def __init__(self, gloss, tag, lemma, pos, cat, coll, rdf, origid, sep=None, text=None, itemid=-1):
+        self.itemid = itemid
         self.gloss = gloss
         self.order = -1
         self.tag = StringTool.strip(tag)
@@ -230,8 +235,8 @@ class GlossItem:
         return "'%s'" % self.get_lemma()
 
     def __str__(self):
-        return "(id:%s | tag:%s | lemma:%s | pos:%s | cat:%s | coll:%s | rdf: %s | sep:%s | text:%s)" % (
-            self.origid, self.tag, self.lemma, self.pos, self.cat, self.coll, self.rdf, self.sep, self.text)
+        return "(itemid: %s | id:%s | tag:%s | lemma:%s | pos:%s | cat:%s | coll:%s | rdf: %s | sep:%s | text:%s)" % (
+            self.itemid, self.origid, self.tag, self.lemma, self.pos, self.cat, self.coll, self.rdf, self.sep, self.text)
 
 class GlossGroup:
     ''' A group tag (i.e. labelled GlossItem group)
@@ -244,8 +249,8 @@ class GlossGroup:
 class SenseTag:
     ''' Sense annotation object
     '''
-    def __init__(self, item, cat, tag, glob, glemma, glob_id, coll, origid, sid, sk, lemma):
-        self.tagid = None       # tag id
+    def __init__(self, item, cat, tag, glob, glemma, glob_id, coll, origid, sid, sk, lemma, tagid=-1):
+        self.tagid = tagid       # tag id
         self.cat = cat              # coll, tag, etc.      
         self.tag = tag        # from glob tag
         self.glob = glob      # from glob tag
@@ -263,5 +268,5 @@ class SenseTag:
         return "%s (sk:%s)" % (self.lemma, self.sk)
 
     def __str__(self):
-        return "%s (sk:%s | cat:%s | tag:%s | glob:%s | glemma:%s | gid:%s | coll:%s | origid: %s)" % (
-            self.lemma, self.sk, self.cat, self.tag, self.glob, self.glemma, self.glob_id, self.coll, self.origid)
+        return "%s (sk:%s | itemid: %s | cat:%s | tag:%s | glob:%s | glemma:%s | gid:%s | coll:%s | origid: %s)" % (
+            self.lemma, self.sk, self.item.itemid, self.cat, self.tag, self.glob, self.glemma, self.glob_id, self.coll, self.origid)

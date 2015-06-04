@@ -116,12 +116,53 @@ class SQLiteGWordNet:
                         , item.cat, item.coll, item.rdf, item.sep, item.text, item.origid])
                     # sensetag;
                     for tag in gloss.tags:
-                        
                         # OBJ: tagid cat, tag, glob, glemma, gid, coll, origid, sid, sk, lemma
                         # DB: id cat tag glob glob_lemma glob_id coll sid gid sk origid lemma itemid
                         tag.tagid = next(sensetagid_seed)
                         exe.schema.sensetag.insert([tag.tagid, tag.cat, tag.tag, tag.glob, tag.glemma, 
                         tag.glob_id, tag.coll, '', gloss.gid, tag.sk, tag.origid, tag.lemma, itemid_map[tag.item.origid] ])
             exe.ds.commit()
+        pass
+
+    def get_synset(self, synsetid):
+        with Execution(self.schema) as exe:
+            # synset;
+            results = exe.schema.synset.select(where='id = ?', values=[synsetid])
+            if len(results) == 1:
+                ss = Synset(results[0].id, results[0].offset, results[0].pos)
+                # term;
+                terms = exe.schema.term.select(where='sid=?', values=[ss.sid])
+                for term in terms:
+                    ss.add_term(term.term)
+                # sensekey;
+                sks = exe.schema.sensekey.select(where='sid=?', values=[ss.sid])
+                for sk in sks:
+                    ss.add_sensekey(sk.sensekey)
+                # gloss_raw | sid cat gloss
+                rgs = exe.schema.gloss_raw.select(where='sid=?', values=[ss.sid])
+                for rg in rgs:
+                    ss.add_raw_gloss(rg.cat, rg.gloss)
+                # gloss; DB: id origid sid cat | OBJ: gid origid cat
+                glosses = exe.schema.gloss.select(where='sid=?', values=[ss.sid])
+                for gl in glosses:
+                    gloss = ss.add_gloss(gl.origid, gl.cat, gl.id)  
+                    # glossitem;
+                    # OBJ | gloss, order, tag, lemma, pos, cat, coll, rdf, origid, sep, text
+                    # DB  | id ord gid tag lemma pos cat coll rdf sep text origid
+                    glossitems = exe.schema.glossitem.select(where='gid=?', values=[gl.id])
+                    item_map = {}
+                    for gi in glossitems:
+                        item = gloss.add_gloss_item(gi.tag, gi.lemma, gi.pos, gi.cat, gi.coll, gi.rdf, gi.origid, gi.sep, gi.text, gi.id)
+                        item_map[item.itemid] = item
+                    # sensetag;
+                    # OBJ: tagid cat, tag, glob, glemma, gid, coll, origid, sid, sk, lemma
+                    # DB: id cat tag glob glob_lemma glob_id coll sid gid sk origid lemma itemid
+                    tags = exe.schema.sensetag.select(where='gid=?', values=[gl.id])
+                    for tag in tags:
+                        gloss.tag_item(item_map[tag.itemid], tag.cat, tag.tag, tag.glob, tag.glob_lemma
+                            , tag.glob_id, tag.coll, tag.origid, tag.sid, tag.sk, tag.lemma, tag.id)
+                return ss
+            else:
+                return None
         pass
         

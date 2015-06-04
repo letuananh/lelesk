@@ -66,6 +66,13 @@ def header(msg):
 
 #-----------------------------------------------------------------------
 
+def get_synset(wng_db_loc, synsetid):
+    db = SQLiteGWordNet(wng_db_loc)
+    synset = db.get_synset(synsetid)
+    dump_synset(synset)
+
+#-----------------------------------------------------------------------
+
 def dump_synset(ss):
     '''
     Print synset details for debugging purpose
@@ -152,10 +159,14 @@ def main():
     parser = argparse.ArgumentParser(description="Convert Gloss WordNet from XML into SQLite DB.")
     
     # Positional argument(s)
+    # parser.add_argument('task', help='Task to perform (create/import/synset)')
+
     parser.add_argument('-i', '--wng_location', help='Path to Gloss WordNet folder (default = ~/wordnet/glosstag')
     parser.add_argument('-o', '--wng_db', help='Path to database file (default = ~/wordnet/glosstag.db')
-    parser.add_argument('-d', '--dev', help='Development mode', action='store_true')
-    parser.add_argument('-x', '--extract_only', help='Only extract data (do NOT initialize database schema)', action='store_true')
+    parser.add_argument('-c', '--create', help='Create DB and then import data', action='store_true')
+    parser.add_argument('-d', '--dev', help='Dev mode (do not use)', action='store_true')
+    parser.add_argument('-s', '--synset', help='Retrieve synset information')
+
 
     # Optional argument(s)
     group = parser.add_mutually_exclusive_group()
@@ -164,13 +175,19 @@ def main():
     
     # Parse input arguments
     args = parser.parse_args()
+
+    wng_loc = args.wng_location if args.wng_location else WORDNET_30_GLOSSTAG_PATH
+    wng_db_loc = args.wng_db if args.wng_db else WORDNET_30_GLOSS_DB_PATH
+
     # Now do something ...
     if args.dev:
         dev_mode()
+    elif args.create:
+        convert(wng_loc, wng_db_loc, True)
+    elif args.synset:
+        get_synset(wng_db_loc, args.synset)
     else:
-        wng_loc = args.wng_location if args.wng_location else WORDNET_30_GLOSSTAG_PATH
-        wng_db_loc = args.wng_db if args.wng_db else WORDNET_30_GLOSS_DB_PATH
-        convert(wng_loc, wng_db_loc, not args.extract_only)
+        parser.print_help()
     pass # end main()
 
 if __name__ == "__main__":
