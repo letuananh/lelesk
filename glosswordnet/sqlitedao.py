@@ -78,9 +78,13 @@ class SQLiteGWordNet:
         pass # end setup()
     
     def insert_synset(self, synset):
+        ''' Helper method for storing a single synset
+        '''
         self.insert_synsets([synset])
     
     def insert_synsets(self, synsets):
+        ''' Store synsets with related information (sensekeys, terms, gloss, etc.)
+        '''
         with Execution(self.schema) as exe:
             # synset;
             glossid_seed = itertools.count()
