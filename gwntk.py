@@ -7,16 +7,16 @@ Latest version can be found at https://github.com/letuananh/lelesk
 
 Usage:
     # Search sysets by term (word form) = `love' and POS is verb
-    python3 gwn2db.py -t 'love' -p 'v'
+    python3 gwntk.py -t 'love' -p 'v'
 
     # Search synsets by synset-id
-    python3 gwn2db.py -s 'v01775535'
+    python3 gwntk.py -s 'v01775535'
 
     # Search synsets by sensekey
-    python3 gwn2db.py -k 'love%2:37:01::'
+    python3 gwntk.py -k 'love%2:37:01::'
 
     # Create SQLite database for searching
-    python3 gwn2db.py -c -i ~/wordnet/glosstag -o ~/wordnet/gwn.db
+    python3 gwntk.py -c -i ~/wordnet/glosstag -o ~/wordnet/gwn.db
 
 
 
@@ -82,6 +82,13 @@ def header(msg):
 
 #-----------------------------------------------------------------------
 
+def cache_all_synsets(wng_db_loc):
+    t = Timer()
+    t.start("Caching synsets")
+    db = SQLiteGWordNet(wng_db_loc)
+    synsets = db.all_synsets()
+    t.end("Done caching")
+
 def get_synset_by_id(wng_db_loc, synsetid):
     db = SQLiteGWordNet(wng_db_loc)
     synsets = db.get_synset_by_id(synsetid)
@@ -100,6 +107,8 @@ def get_synsets_by_term(wng_db_loc, t, pos):
 #-----------------------------------------------------------------------
 
 def dump_synsets(synsets):
+    ''' Dump a SynsetCollection to stdout
+    '''
     if synsets:
         for synset in synsets:
             dump_synset(synset)
@@ -132,6 +141,8 @@ def dump_synset(ss):
     print('')
 
 def dev_mode():
+    ''' Test data extraction from XML file
+    ''' 
     xml_file = os.path.expanduser('~/wordnet/glosstag/merged/test.xml')
     xmlwn = XMLGWordNet()
     xmlwn.read(xml_file)
@@ -204,6 +215,7 @@ def main():
     parser.add_argument('-k', '--sensekey', help='Retrieve synset information by sensekey')
     parser.add_argument('-t', '--term', help='Retrieve synset information by term (word form)')
     parser.add_argument('-p', '--pos', help='Specify part-of-speech')
+    parser.add_argument('-a', '--all', help='Cache all synsets', action='store_true')
 
 
 
@@ -227,6 +239,8 @@ def main():
         get_synset_by_id(wng_db_loc, args.synset)
     elif args.sensekey:
         get_synset_by_sk(wng_db_loc, args.sensekey)
+    elif args.all:
+        cache_all_synsets(wng_db_loc)
     elif args.term:
         get_synsets_by_term(wng_db_loc, args.term, args.pos)
     else:

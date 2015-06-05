@@ -124,8 +124,9 @@ class SQLiteGWordNet:
             exe.ds.commit()
         pass
 
-    def results_to_synsets(self, results, exe):
-        synsets = SynsetCollection()
+    def results_to_synsets(self, results, exe, synsets=None):
+        if not synsets:
+            synsets = SynsetCollection()
         for result in results:
             ss = Synset(result.id, result.offset, result.pos)
             # term;
@@ -172,6 +173,16 @@ class SQLiteGWordNet:
                 return None
         pass
 
+    def all_synsets(self, synsets=None):
+        with Execution(self.schema) as exe:
+            # synset;
+            results = exe.schema.synset.select()
+            if results:
+                return self.results_to_synsets(results, exe, synsets)
+            else:
+                return None
+        pass
+
     def get_synset_by_sk(self, sensekey):
         with Execution(self.schema) as exe:
             # synset;
@@ -182,7 +193,7 @@ class SQLiteGWordNet:
                 return None
         pass
 
-    def get_synsets_by_term(self, term, pos):
+    def get_synsets_by_term(self, term, pos, synsets=None):
         with Execution(self.schema) as exe:
             # synset;
             if pos:
@@ -190,7 +201,7 @@ class SQLiteGWordNet:
             else:
                 results = exe.schema.synset.select(where='id IN (SELECT sid FROM term where term=?)', values=[term])
             if results:
-                return self.results_to_synsets(results, exe)
+                return self.results_to_synsets(results, exe, synsets)
             else:
                 return None
         pass
