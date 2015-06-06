@@ -79,6 +79,9 @@ class SynsetCollection:
     def count(self):
         return len(self.synsets)
 
+    def __len__(self):
+        return self.count()
+
     # Merge with another Synset Collection
     def merge(self, another_scol):
         for synset in another_scol.synsets:

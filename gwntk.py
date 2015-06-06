@@ -55,9 +55,11 @@ __status__ = "Prototype"
 # import sys
 import os.path
 import argparse
-from chirptext.leutile import StringTool, Counter, Timer
+from chirptext.leutile import StringTool, Counter, Timer, uniquify
 from glosswordnet import XMLGWordNet, SQLiteGWordNet
 import itertools
+from wordnetsql import WordNetSQL as WSQL
+from collections import defaultdict as dd
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
@@ -83,11 +85,22 @@ def header(msg):
 #-----------------------------------------------------------------------
 
 def cache_all_synsets(wng_db_loc):
+    ''' Cache all Gloss Synset (SQLite) to database
+    '''
     t = Timer()
     t.start("Caching synsets")
     db = SQLiteGWordNet(wng_db_loc)
     synsets = db.all_synsets()
     t.end("Done caching")
+
+    db = WSQL(WORDNET_30_PATH)
+    t.start("Start caching stuff ...")
+    # This should take less than 5 secs to run
+    db.cache_all_sensekey()
+    #------------------------------------------
+    # This should take less than 25 secs to run
+    db.cache_all_hypehypo()
+    t.end("Done caching!")
 
 def get_synset_by_id(wng_db_loc, synsetid):
     db = SQLiteGWordNet(wng_db_loc)
@@ -133,14 +146,15 @@ def dump_synset(ss):
     for gloss in ss.glosses:
         print("Gloss #%s: %s" % (next(gloss_count), gloss))
         for item in gloss.items:
-            print("\t%s - { %s }" % (item.get_gramword(), item))
+            # print("\t%s - { %s }" % (uniquify(item.get_gramword()), item))
+            print("\t%s - { %s }" % (set(item.get_gramword()), item))
         print("\t" + ("-" * 10))
         for tag in gloss.tags:
             print("\t%s" % tag)
         print('')
     print('')
 
-def dev_mode():
+def test_extract_xml():
     ''' Test data extraction from XML file
     ''' 
     xml_file = os.path.expanduser('~/wordnet/glosstag/merged/test.xml')
@@ -149,6 +163,82 @@ def dev_mode():
     
     for ss in xmlwn.synsets[:5]:
         dump_synset(ss)
+
+def test_gwn_access():
+    ''' Testing wordnetsql module
+    '''
+    db = WSQL(WORDNET_30_PATH)
+
+    sinfo = db.get_senseinfo_by_sk('pleasure%1:09:00::')
+    print(sinfo)
+    hypehypos = db.get_hypehypo(sinfo.synsetid)
+    for hh in hypehypos:
+        print(hh)
+
+def dev_mode(wng_db_loc):
+    ''' Just a dummy method for quick calling
+    '''
+    # test_extract_xml()
+    # test_gwn_access()
+
+    gwn = SQLiteGWordNet(wng_db_loc)
+    wn = WSQL(WORDNET_30_PATH)
+
+    t = Timer()
+    t.start('Caching WN30 sensekey map')
+    wnsks = wn.get_all_sensekeys()
+    wn_skmap = {}
+    wn_sidmap = dd(list)
+    # map by sensekeys and synsetid
+    for item in wnsks:
+        wn_skmap[item.sensekey] = item.synsetid
+        wn_sidmap[str(item.synsetid)[1:]].append(item.sensekey)
+    t.end("Done WN30")
+
+    t.start('Caching GWN sensekey map')
+    gwn_ss = gwn.get_all_sensekeys()
+    gwn_skmap = {}
+    for item in gwn_ss:
+        gwn_skmap[item.sensekey] = item.sid
+    t.end("Done GWN")
+
+    t.start('Caching GWN tagged sensekey')
+    gwn_tags = gwn.get_all_sensekeys_tagged()
+    t.end("Done tagged sensekey")
+
+    print("wn30 sensekeys: %s" % len(wnsks))
+    print("gwn synsets   : %s" % len(gwn_ss))
+    print("All tagged sk : %s" % len(gwn_tags))
+
+    c = Counter()
+    for tag in gwn_tags:
+        if tag not in gwn_skmap:
+            print("sk [%s] does not exist in GWN" % tag)
+            c.count("GWN Not Found")
+        else:
+            c.count("GWN Found")
+        if tag not in wn_skmap:
+            if tag in gwn_skmap:
+                gwn_sid = gwn_skmap[tag][1:]
+                # print("Searching %s" % (gwn_sid))
+                if gwn_sid in wn_sidmap:
+                    candidates = wn_sidmap[gwn_sid]
+                    newsks = set()
+                    for cand in candidates:
+                        if cand not in gwn_skmap:
+                            newsks.add(cand)
+                    # print("Found but changed: %s => %s" % (tag, newsks))
+                    c.count("WN30 Found derivative")                    
+                else:
+                    c.count("WN30 Not Found At all")
+                    print("sk [%s] does not exist in WN30 at all ..." % tag)    
+            else:
+                c.count("WN30 & GWN Not Found")
+                print("sk [%s] does not exist in WN30" % tag)
+        else:
+            c.count("WN30 Found")
+    c.summarise()
+
 
 #--------------------------------------------------------
 
@@ -232,7 +322,7 @@ def main():
 
     # Now do something ...
     if args.dev:
-        dev_mode()
+        dev_mode(wng_db_loc)
     elif args.create:
         convert(wng_loc, wng_db_loc, True)
     elif args.synset:

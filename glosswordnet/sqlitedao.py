@@ -206,3 +206,19 @@ class SQLiteGWordNet:
                 return None
         pass
         
+    def get_all_sensekeys(self):
+        with Execution(self.schema) as exe:
+            # synset;
+            results = exe.schema.sensekey.select()
+            return results
+        pass
+
+    def get_all_sensekeys_tagged(self):
+        with Execution(self.schema) as exe:
+            # synset;
+            results = exe.schema.sensetag.select(columns=['sk'])
+            sensekeys = set()
+            for result in results:
+                sensekeys.add(result.sk)
+            return sensekeys
+        pass
