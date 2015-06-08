@@ -16,9 +16,7 @@ Usage:
     python3 gwntk.py -k 'love%2:37:01::'
 
     # Create SQLite database for searching
-    python3 gwntk.py -c -i ~/wordnet/glosstag -o ~/wordnet/gwn.db
-
-
+    python3 gwntk.py -c -i ~/wordnet/glosstag -g ~/wordnet/gwn.db
 
 @author: Le Tuan Anh <tuananh.ke@gmail.com>
 '''
@@ -55,11 +53,13 @@ __status__ = "Prototype"
 # import sys
 import os.path
 import argparse
-from chirptext.leutile import StringTool, Counter, Timer, uniquify
+from chirptext.leutile import StringTool, Counter, Timer, uniquify, header
 from glosswordnet import XMLGWordNet, SQLiteGWordNet
 import itertools
 from wordnetsql import WordNetSQL as WSQL
 from collections import defaultdict as dd
+from collections import namedtuple
+
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
@@ -73,14 +73,6 @@ WORDNET_30_GLOSS_DB_PATH = os.path.expanduser('~/wordnet/glosstag.db')
 #       http://wordnet.princeton.edu/glosstag.shtml
 
 DB_INIT_SCRIPT = os.path.expanduser('./script/wngdb.sql')
-
-#------------------------------------------------------------------------
-
-def header(msg):
-    print('')
-    print('-' * 80)
-    print(msg)
-    print('')
 
 #-----------------------------------------------------------------------
 
@@ -129,29 +121,42 @@ def dump_synsets(synsets):
     else:
         print("None was found!")
 
-def dump_synset(ss):
+def dump_synset(ss, compact_gloss=False, compact_tags=False, more_compact=True):
     '''
     Print synset details for debugging purpose
     '''
     print("-" * 80)
-    print("Synset: %s" % ss)
+    if more_compact:
+        print("Synset: %s (terms=%s | keys=%s)" % (ss.get_synsetid(), ss.terms, ss.keys))
+    else:
+        print("Synset: %s" % ss)
     print("-" * 80)
 
     for rgloss in ss.raw_glosses:
+        if more_compact:
+            if rgloss.cat != 'orig':
+                continue
         print(rgloss)
-
-    print('')
 
     gloss_count = itertools.count(1)
     for gloss in ss.glosses:
         print("Gloss #%s: %s" % (next(gloss_count), gloss))
-        for item in gloss.items:
-            # print("\t%s - { %s }" % (uniquify(item.get_gramword()), item))
-            print("\t%s - { %s }" % (set(item.get_gramword()), item))
-        print("\t" + ("-" * 10))
-        for tag in gloss.tags:
-            print("\t%s" % tag)
-        print('')
+
+        # Dump gloss items
+        if compact_gloss:
+            print("\tTokens => %s" % gloss.get_gramwords())
+        else:
+            for item in gloss.items:
+                # print("\t%s - { %s }" % (uniquify(item.get_gramwords()), item))
+                print("\t%s - { %s }" % (set(item.get_gramwords()), item))
+            print("\t" + ("-" * 10))
+        
+        # Dump tags
+        if compact_tags:
+            print("\tTags => %s" % gloss.get_tagged_sensekey())
+        else:
+            for tag in gloss.tags:
+                print("\t%s" % tag)
     print('')
 
 def test_extract_xml():
@@ -175,12 +180,9 @@ def test_gwn_access():
     for hh in hypehypos:
         print(hh)
 
-def dev_mode(wng_db_loc):
-    ''' Just a dummy method for quick calling
+def test_skmap_gwn_wn30():
+    ''' Comparing sensekeys between GWN and WN30SQLite
     '''
-    # test_extract_xml()
-    # test_gwn_access()
-
     gwn = SQLiteGWordNet(wng_db_loc)
     wn = WSQL(WORDNET_30_PATH)
 
@@ -239,6 +241,16 @@ def dev_mode(wng_db_loc):
             c.count("WN30 Found")
     c.summarise()
 
+def dev_mode(wng_db_loc):
+    ''' Just a dummy method for quick calling
+    '''
+    # test_extract_xml()   # Demo extracting Gloss WordNet XML file 
+    # test_gwn_access()    # Demo accessing WN30 SQLite
+    #test_skmap_gwn_wn30() # Comparing sensekeys between GWN and WN30SQLite
+
+    db = WSQL(WORDNET_30_PATH)
+    c = db.get_tagcount('100002684')
+    print(c)
 
 #--------------------------------------------------------
 
@@ -306,6 +318,8 @@ def main():
     parser.add_argument('-t', '--term', help='Retrieve synset information by term (word form)')
     parser.add_argument('-p', '--pos', help='Specify part-of-speech')
     parser.add_argument('-a', '--all', help='Cache all synsets', action='store_true')
+    parser.add_argument('-w', '--wnsql', help='Location to WordNet SQLite 3.0 database')
+    parser.add_argument('-g', '--glosswn', help='Location to Gloss WordNet SQLite database')
 
 
 
@@ -318,7 +332,8 @@ def main():
     args = parser.parse_args()
 
     wng_loc = args.wng_location if args.wng_location else WORDNET_30_GLOSSTAG_PATH
-    wng_db_loc = args.wng_db if args.wng_db else WORDNET_30_GLOSS_DB_PATH
+    wng_db_loc = args.wng_db if args.wng_db else (args.glosswn if args.glosswn else WORDNET_30_GLOSS_DB_PATH)
+    wn30_loc = args.wnsql if args.wnsql else WORDNET_30_PATH
 
     # Now do something ...
     if args.dev:

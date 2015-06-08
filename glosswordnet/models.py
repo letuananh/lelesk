@@ -37,7 +37,7 @@ __maintainer__ = "Le Tuan Anh"
 __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
 
-from chirptext.leutile import StringTool, Counter
+from chirptext.leutile import StringTool, Counter, uniquify
 
 #-----------------------------------------------------------------------
 # CONFIGURATION
@@ -76,6 +76,9 @@ class SynsetCollection:
         else:
             return None
     
+    def __iter__(self):
+        return iter(self.synsets)
+
     def count(self):
         return len(self.synsets)
 
@@ -139,10 +142,10 @@ class Synset:
     ''' Each synset object comes with sensekeys (ref: SenseKey), terms (ref: Term), and 3 glosses (ref: GlossRaw).
     '''
 
-    def __init__(self, sid, ofs, pos):
+    def __init__(self, sid, ofs=None, pos=None):
         self.sid   = sid
-        self.ofs   = ofs
-        self.pos   = pos
+        self.ofs   = ofs if ofs else sid[1:]
+        self.pos   = pos if pos else sid[0]
         self.keys  = []       # list of SenseKey
         self.terms = []       # list of Term
         self.raw_glosses = [] # list of GlossRaw
@@ -165,8 +168,60 @@ class Synset:
         self.glosses.append(g)
         return g
 
+    def get_synsetid(self):
+        ''' Get canonical synset ID (E.g. 12345678-n)
+        '''
+        return "%s-%s" % (self.ofs, self.pos)
+
+    def get_orig_gloss(self):
+        for gr in self.raw_glosses:
+            if gr.cat == 'orig':
+                return gr.gloss
+        return ''
+
+    def to_wn30_synsetid(self):
+        if len(self.keys) > 0:
+            parts = self.keys[0].sensekey.split("%") # E.g. cause_to_be_perceived%2:39:00::
+            if len(parts) == 2:
+                nums = parts[1].split(":")
+                if len(nums) >= 3:
+                    return nums[0] + self.ofs
+        print("Invalid sensekey")
+        return ''
+
+    def to_wnsqlite_sid(self):
+        posnum = '4'
+        if self.pos == 'n':
+            posnum = '1'
+        elif self.pos == 'v':
+            posnum = '2'
+        elif self.pos == 'a':
+            posnum = '3'
+        return posnum + str(self.ofs)
+
+    def get_gramwords(self, nopunc=True):
+        words = []
+        for gloss in self.glosses:
+            words.extend(gloss.get_gramwords(nopunc))
+        return words
+
+    def get_tags(self):
+        keys = []
+        for gloss in self.glosses:
+            keys.extend(gloss.get_tagged_sensekey())
+        return keys
+
+    def get_terms_text(self):
+        terms = []
+        for term in self.terms:
+            terms.append(term.term)
+            if ' ' in term.term:
+                terms.extend(term.term.split())
+        return uniquify(terms)
+
     def __str__(self):
-        return "sid: %s | ofs: %s | pos: %s | keys: %s | terms: %s | glosses: %s" % (self.sid, self.ofs, self.pos, self.keys, self.terms, self.glosses)
+        return "sid: %s | terms: %s | keys: %s | glosses: %s | ofs-pos: %s-%s" % (
+            self.sid, self.terms, self.keys, self.glosses, self.ofs, self.pos)
    
 class Gloss:
     def __init__(self, synset, origid, cat, gid):
@@ -178,6 +233,16 @@ class Gloss:
         self.tags = []       # Sense tags
         self.groups = []     # Other group labels
         pass
+
+    def get_tagged_sensekey(self):
+        return [ x.sk for x in self.tags if x ]
+
+    def get_gramwords(self,nopunc=True):
+        tokens = []
+        for item in self.items:
+            words = [ x for x in item.get_gramwords(nopunc)  if x ]
+            tokens.extend(words)
+        return tokens
 
     def add_gloss_item(self, tag, lemma, pos, cat, coll, rdf, origid, sep=None, text=None, itemid=-1):
         gt = GlossItem(self, tag, lemma, pos, cat, coll, rdf, origid, sep, text,itemid)
@@ -217,20 +282,22 @@ class GlossItem:
     def get_lemma(self):
         return self.text if self.text else self.lemma
     
-    def get_gramword(self):
+    def get_gramwords(self, nopunc=True):
         '''
         Return grammatical words from lemma
         E.g.
         prefer%2|preferred%3 => [ 'prefer', 'preferred' ]
         '''
-        lemmata = []
+        if nopunc and self.cat == 'punc':
+            return set()
+        lemmata = set()
         if self.lemma:
             tokens = self.lemma.split('|')
             for token in tokens:
                 parts = token.split("%")
-                lemmata.append(parts[0])
+                lemmata.add(parts[0])
         else:
-            lemmata.append(self.get_lemma())
+            lemmata.add(self.get_lemma())
         return lemmata
 
     def __repr__(self):

@@ -2,6 +2,8 @@
 *.pyc
 debug.txt
 sample.out.txt
+data/specall*.txt
+data/specdev*.txt
 bs4/
 lelesk.model.dat
 nohup.out

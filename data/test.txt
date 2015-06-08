@@ -1,0 +1,3 @@
+adventure	00796315-n	n	The Adventure of the Speckled Band	the|adventure|of|the|speckle|band
+speckle	01538310-v	n	The Adventure of the Speckled Band	the|adventure|of|the|speckle|band
+band	02784218-n	n	The Adventure of the Speckled Band	the|adventure|of|the|speckle|band

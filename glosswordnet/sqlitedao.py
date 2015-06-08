@@ -164,36 +164,55 @@ class SQLiteGWordNet:
         return synsets
 
     def get_synset_by_id(self, synsetid):
+        synsets = SynsetCollection()
         with Execution(self.schema) as exe:
             # synset;
             results = exe.schema.synset.select(where='id = ?', values=[synsetid])
             if results:
-                return self.results_to_synsets(results, exe)
-            else:
-                return None
-        pass
+                return self.results_to_synsets(results, exe, synsets)
+        return synsets
+
+    def get_synset_by_ids(self, synsetids):
+        synsets = SynsetCollection()
+        with Execution(self.schema) as exe:
+            # synset;
+            results = exe.schema.synset.select(where='id IN (%s)' % (','.join(['?'] * len(synsetids)))
+                , values=synsetids)
+            if results:
+                return self.results_to_synsets(results, exe, synsets)
+        return synsets
 
     def all_synsets(self, synsets=None):
+        synsets = SynsetCollection()
         with Execution(self.schema) as exe:
             # synset;
             results = exe.schema.synset.select()
             if results:
                 return self.results_to_synsets(results, exe, synsets)
-            else:
-                return None
-        pass
-
+        return synsets
+        
     def get_synset_by_sk(self, sensekey):
+        synsets = SynsetCollection()
         with Execution(self.schema) as exe:
             # synset;
             results = exe.schema.synset.select(where='id IN (SELECT sid FROM sensekey where sensekey=?)', values=[sensekey])
             if results:
-                return self.results_to_synsets(results, exe)
-            else:
-                return None
-        pass
+                return self.results_to_synsets(results, exe, synsets)
+        return synsets
 
-    def get_synsets_by_term(self, term, pos, synsets=None):
+    def get_synset_by_sks(self, sensekeys):
+        synsets = SynsetCollection()
+        with Execution(self.schema) as exe:
+            # synset;
+            results = exe.schema.synset.select(
+                where='id IN (SELECT sid FROM sensekey where sensekey IN (%s))' % ','.join(['?'] * len(sensekeys))
+                ,values=sensekeys)
+            if results:
+                return self.results_to_synsets(results, exe, synsets)
+        return synsets
+
+    def get_synsets_by_term(self, term, pos=None, synsets=None, sid_only=False):
+        synsets = SynsetCollection()
         with Execution(self.schema) as exe:
             # synset;
             if pos:
@@ -201,10 +220,11 @@ class SQLiteGWordNet:
             else:
                 results = exe.schema.synset.select(where='id IN (SELECT sid FROM term where term=?)', values=[term])
             if results:
-                return self.results_to_synsets(results, exe, synsets)
-            else:
-                return None
-        pass
+                if sid_only:
+                    return results
+                else:
+                    return self.results_to_synsets(results, exe, synsets)
+        return synsets
         
     def get_all_sensekeys(self):
         with Execution(self.schema) as exe:
@@ -222,3 +242,21 @@ class SQLiteGWordNet:
                 sensekeys.add(result.sk)
             return sensekeys
         pass
+
+    def get_glossitems_text(self, sid):
+        with Execution(self.schema) as exe:
+            results = exe.schema.glossitem.select(where='gid IN (SELECT id FROM gloss WHERE sid = ?)', values=[sid],
+                columns=['id', 'lemma', 'pos', 'text'])
+            items = []
+            for item in results:
+                g = GlossItem(gloss=None, tag=None, lemma=item.lemma, pos=item.pos, cat=None
+                    , coll=None, rdf=None, origid=None, sep=None, text=None, itemid=item.id)
+                items.append(g)
+            return items
+
+    def get_sensetags(self, sid):
+        with Execution(self.schema) as exe:
+            results = exe.schema.sensetag.select(where='gid IN (SELECT id FROM gloss WHERE sid = ?)', values=[sid],
+                columns=['id', 'lemma', 'sk'])
+            return results
+

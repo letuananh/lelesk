@@ -56,10 +56,29 @@ class WordNetSQL:
     def __init__(self, db_path):
         self.db_path = db_path
         self.sk_cache = dd(set)
+        self.sid_cache = dd(set)
         self.hypehypo_cache = dd(set)
 
         self.schema = WordNet3Schema(self.db_path)
+        self.tagcount_cache = dd(lambda: 0)
     
+    def cache_tagcounts(self):
+        with Execution(self.schema) as exe:
+            results = exe.schema.wss.select(columns=['synsetid', 'tagcount'])
+        for res in results:
+            self.tagcount_cache[res.synsetid] += res.tagcount
+
+    def get_tagcount(self, sid):
+        if sid in self.tagcount_cache:
+            return self.tagcount_cache[sid]
+        with Execution(self.schema) as exe:
+            results = exe.schema.wss.select(where='synsetid=?',values=[sid], columns=['tagcount'])
+        counter = 0
+        for res in results:
+            counter += res.tagcount
+        self.tagcount_cache[sid] = counter
+        return counter
+
     def get_senseinfo_by_sk(self, sk):
         if sk in self.sk_cache:
             return self.sk_cache[sk]
@@ -68,6 +87,16 @@ class WordNetSQL:
             result = exe.schema.wss.select_single(where='sensekey=?', values=[sk]
                 , columns=['pos', 'synsetid', 'sensekey'])
         self.sk_cache[sk] = result
+        return result
+
+    def get_senseinfo_by_sid(self, sid):
+        if sid in self.sid_cache:
+            return self.sid_cache[sid]
+        result = None
+        with Execution(self.schema) as exe:
+            result = exe.schema.wss.select_single(where='synsetid=?', values=[sid]
+                , columns=['pos', 'synsetid', 'sensekey'])
+        self.sid_cache[sid] = result
         return result
  
     def get_all_sensekeys(self):
@@ -331,4 +360,3 @@ class WordNetSQL:
             wnsql.cache_all_hypehypo()
             wnsql.cache_all_sensekey()
         return wnsql
-    
