@@ -50,11 +50,11 @@ On a decent PC with quadcore i7 and 4 GB RAM, it takes ~13 minutes to process an
 | Information                         |    Stat |
 |:------------------------------------|--------:|
 | Sentences                           |     599 |
-| Correct sense ranked the first      |    2242 |
-| Correct sense ranked the 2nd or 3rd |    1297 |
-| Wrong                               |   1501  |
-| NoSense                             |    254  |
-| TotalSense                          |    5294 |
+| Correct sense ranked the first      |    2544 |
+| Correct sense ranked the 2nd or 3rd |    1328 |
+| Wrong                               |   1325  |
+| NoSense                             |    122  |
+| TotalSense                          |    5319 |
 
 Development test result (a subset of speckled.txt)
 
@@ -62,20 +62,21 @@ LELESK
 
 | Information                         |    Stat |
 |:------------------------------------|--------:|
-| Correct sense ranked the first      |    179 |
-| Correct sense ranked the 2nd or 3rd |    100 |
-| Wrong                               |   94  |
-| NoSense                             |    15  |
-| TotalSense                          |    388 |
+| Correct sense ranked the first      |     190 |
+| Correct sense ranked the 2nd or 3rd |     105 |
+| Wrong                               |      96 |
+| NoSense                             |       9 |
+| TotalSense                          |     400 |
 
 MFS
 
 | Information                         |    Stat |
 |:------------------------------------|--------:|
-| Correct sense ranked the first      |    195 |
-| Correct sense ranked the 2nd or 3rd |    93 |
-| Wrong                               |   85  |
-| NoSense                             |    15  |
-| TotalSense                          |    388 |
+| Correct sense ranked the first      |     211 |
+| Correct sense ranked the 2nd or 3rd |      93 |
+| Wrong                               |      87 |
+| NoSense                             |       9 |
+| TotalSense                          |     400 |
+
 
 
