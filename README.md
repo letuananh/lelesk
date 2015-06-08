@@ -56,3 +56,26 @@ On a decent PC with quadcore i7 and 4 GB RAM, it takes ~13 minutes to process an
 | NoSense                             |    254  |
 | TotalSense                          |    5294 |
 
+Development test result (a subset of speckled.txt)
+
+LELESK
+
+| Information                         |    Stat |
+|:------------------------------------|--------:|
+| Correct sense ranked the first      |    179 |
+| Correct sense ranked the 2nd or 3rd |    100 |
+| Wrong                               |   94  |
+| NoSense                             |    15  |
+| TotalSense                          |    388 |
+
+MFS
+
+| Information                         |    Stat |
+|:------------------------------------|--------:|
+| Correct sense ranked the first      |    195 |
+| Correct sense ranked the 2nd or 3rd |    93 |
+| Wrong                               |   85  |
+| NoSense                             |    15  |
+| TotalSense                          |    388 |
+
+
