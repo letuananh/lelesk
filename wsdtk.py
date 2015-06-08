@@ -256,7 +256,7 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
             outfile.write("| Correct sense ranked the 2nd or 3rd |   %s | %s |\n" % (str(c['InTop3']).rjust(5, ' '), str(len(top3_count)).rjust(5, ' ')))
             outfile.write("| Wrong                               |   %s | %s |\n" % (str(c['Wrong']).rjust(5, ' '), str(len(wrong_count)).rjust(5, ' ')))
             outfile.write("| NoSense                             |   %s | %s |\n" % (str(c['NoSense']).rjust(5, ' '), str(len(nosense_count)).rjust(5, ' ')))
-            outfile.write("| TotalSense                          |   %s | %s |\n" % (str(c['TotalSense']).rjust(5, ' '), str(totalcount).rjust(5, ' ')))
+            outfile.write("| TotalSense                          |   %s | %s |\n" % (str(c['TotalSense']).rjust(5, ' '), str('').rjust(5, ' '))) # totalcount is wrong!
 
         jilog("Done.")
     jilog("Batch job finished")
