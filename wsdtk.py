@@ -247,15 +247,16 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
             for line in outputlines:
                 outfile.write('%s\t%s\t%s\t%s\t%s\n' % (line.results ,line.word ,line.correct_sense ,line.suggested_sense ,line.sentence_text))
             # write summary
+            totalcount = len(match_count) + len(top3_count) + len(wrong_count) + len(nosense_count)
             outfile.write("\n")
             outfile.write("")
-            outfile.write("| Information                         |    Stat |\n")
-            outfile.write("|:------------------------------------|--------:|\n")
-            outfile.write("| Correct sense ranked the first      |   %s |\n" % str(c['Match']).rjust(5, ' '))
-            outfile.write("| Correct sense ranked the 2nd or 3rd |   %s |\n" % str(c['InTop3']).rjust(5, ' '))
-            outfile.write("| Wrong                               |   %s |\n" % str(c['Wrong']).rjust(5, ' '))
-            outfile.write("| NoSense                             |   %s |\n" % str(c['NoSense']).rjust(5, ' '))
-            outfile.write("| TotalSense                          |   %s |\n" % str(c['TotalSense']).rjust(5, ' '))
+            outfile.write("| Information                         |    Instance | Classes |\n")
+            outfile.write("|:------------------------------------|--------:|-----------:\n")
+            outfile.write("| Correct sense ranked the first      |   %s | %s |\n" % (str(c['Match']).rjust(5, ' '), str(len(match_count)).rjust(5, ' ')))
+            outfile.write("| Correct sense ranked the 2nd or 3rd |   %s | %s |\n" % (str(c['InTop3']).rjust(5, ' '), str(len(top3_count)).rjust(5, ' ')))
+            outfile.write("| Wrong                               |   %s | %s |\n" % (str(c['Wrong']).rjust(5, ' '), str(len(wrong_count)).rjust(5, ' ')))
+            outfile.write("| NoSense                             |   %s | %s |\n" % (str(c['NoSense']).rjust(5, ' '), str(len(nosense_count)).rjust(5, ' ')))
+            outfile.write("| TotalSense                          |   %s | %s |\n" % (str(c['TotalSense']).rjust(5, ' '), str(totalcount).rjust(5, ' ')))
 
         jilog("Done.")
     jilog("Batch job finished")
