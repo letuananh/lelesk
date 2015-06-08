@@ -60,23 +60,23 @@ Development test result (a subset of speckled.txt)
 
 LELESK
 
-| Information                         |    Stat |
-|:------------------------------------|--------:|
-| Correct sense ranked the first      |     190 |
-| Correct sense ranked the 2nd or 3rd |     105 |
-| Wrong                               |      96 |
-| NoSense                             |       9 |
-| TotalSense                          |     400 |
+| Information                         |    Instance | Classes |
+|:------------------------------------|--------:|-----------:
+| Correct sense ranked the first      |     190 |   139 |
+| Correct sense ranked the 2nd or 3rd |     105 |   100 |
+| Wrong                               |      96 |    83 |
+| NoSense                             |       9 |     5 |
+| TotalSense                          |     400 |   - |
 
 MFS
 
-| Information                         |    Stat |
-|:------------------------------------|--------:|
-| Correct sense ranked the first      |     211 |
-| Correct sense ranked the 2nd or 3rd |      93 |
-| Wrong                               |      87 |
-| NoSense                             |       9 |
-| TotalSense                          |     400 |
+| Information                         |    Instance | Classes |
+|:------------------------------------|--------:|-----------:
+| Correct sense ranked the first      |     211 |   147 |
+| Correct sense ranked the 2nd or 3rd |      93 |    86 |
+| Wrong                               |      87 |    73 |
+| NoSense                             |       9 |     5 |
+| TotalSense                          |     400 |  -  |
 
 
 
