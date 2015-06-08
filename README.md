@@ -23,32 +23,59 @@ An attempt to improve extended LESK using glosstag WordNet
 2. create folder: ~/wordnet
 3. Copy glosstag folder from WordNet STG to ~/wordnet/glosstag
 4. Copy sqlite-30.db to ~/wordnet/sqlite-30.db
-
+5. Create SQLite database for WordNet Gloss Corpus by using
+```
+python3 gwntk.py -c
+```
 #USING LeLESK
 ----------------------
-To run WSD on semcor test data (annotated with WordNet 3.0), execute the following command:
+To make a single WSD call, execute the following command:
 ```
-python main.py semcor semcor_wn30.txt > semcor_wn30.txt.output.txt
+python3 wsdtk.py -W YOUR_WORD -x YOUR_SENTENCE
 ```
-Or run the prepared shell script:
+For example, if you want to disambiguate the word "bank" in the sentence "I go to the bank to withdraw money", use:
 ```
-bash test.sh
+python3 wsdtk.py -W "bank" -x "I go to the bank to withdraw money"
+```
+
+To run WSD in batch mode, execute the following command:
+```
+python3 wsdtk.py -b data/datafile.txt -o data/datafile_summary.txt > data/datafile_details.txt
 ```
 
 #RESULT
 
-On a decent PC with quadcore i7 and 4 GB RAM, it takes ~30 mins to process the whole Semcor test data. This is the result you should be able to get with the latest version:
+On a decent PC with quadcore i7 and 4 GB RAM, it takes ~13 minutes to process annotated document "The Adventure of the Speckled Band" in NTU-MC. This is the result you should be able to get with the latest version:
 
-| Information                  |    Stat |
-|:-----------------------------|--------:|
-| Sentences                    |  37,176 |
-| Words (Lemmatized wrongly)   |  60,458 |
-| Words (No sense found)       |  79,329 |
-| Words (Lemmatized correctly) | 112,226 |
-| Words (total)                | 252,013 |
-| Correct sense found in top 3 |  65,928 |
-| Tagged with correct sense    |  32,967 |
-| Accuracy                     |  29.37% |
-| Accurary (top 3)             |  58.74% |
+| Information                         |    Stat |
+|:------------------------------------|--------:|
+| Sentences                           |     599 |
+| Correct sense ranked the first      |    2242 |
+| Correct sense ranked the 2nd or 3rd |    1297 |
+| Wrong                               |   1501  |
+| NoSense                             |    254  |
+| TotalSense                          |    5294 |
+
+Development test result (a subset of speckled.txt)
+
+LELESK
+
+| Information                         |    Stat |
+|:------------------------------------|--------:|
+| Correct sense ranked the first      |    179 |
+| Correct sense ranked the 2nd or 3rd |    100 |
+| Wrong                               |   94  |
+| NoSense                             |    15  |
+| TotalSense                          |    388 |
+
+MFS
+
+| Information                         |    Stat |
+|:------------------------------------|--------:|
+| Correct sense ranked the first      |    195 |
+| Correct sense ranked the 2nd or 3rd |    93 |
+| Wrong                               |   85  |
+| NoSense                             |    15  |
+| TotalSense                          |    388 |
 
 
