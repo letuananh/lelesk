@@ -4,9 +4,13 @@ debug.txt
 sample.out.txt
 data/specall*.txt
 data/specdev*.txt
+data/test*.txt
 bs4/
 lelesk.model.dat
 nohup.out
+chirptext
+nltk
+puchikarui
 semcor_wn30.out.txt
 lelesk.sublime-project
 lelesk.sublime-workspace
