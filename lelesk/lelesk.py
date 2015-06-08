@@ -53,7 +53,7 @@ from wordnetsql import WordNetSQL as WSQL
 
 import nltk
 from nltk import WordNetLemmatizer
-
+from nltk.corpus import stopwords
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
@@ -72,6 +72,7 @@ class LeLeskWSD:
         self.wn = WSQL(wn30_loc)
         self.tokenized_sentence_cache = {}
         self.lemmatized_word_cache = {}
+        self.lelesk_tokens_sid_cache = {} # cache tokens of a given sid
 
         # Cache data for faster access
         #t = Timer()
@@ -87,11 +88,18 @@ class LeLeskWSD:
         if verbose:
             print("LeLeskWSD object has been initialized ...")
 
+    def smart_synset_search(self, term, pos):
+        sses = self.gwn.get_synsets_by_term(term=term, pos=pos)
+        if len(sses) == 0:
+            # try replace '-' with space
+            sses = self.gwn.get_synsets_by_term(term=term.replace('-', ' '), pos=pos)
+        return sses
+
     def build_lelesk_for_word(self, a_word, pos=None, dump_candidate=True):
         cache_key = (a_word, pos)
         if cache_key in self.word_cache:
             return self.word_cache[cache_key]
-        sses = self.gwn.get_synsets_by_term(term=a_word, pos=pos)
+        sses = self.smart_synset_search(term=a_word, pos=pos)
         print("Retrieving LeLesk candidates for word ``%s''" % a_word)
         x = itertools.count(1)
         candidates = []
@@ -106,12 +114,14 @@ class LeLeskWSD:
         if dump_candidate:
             header("Final candidates for the word ``%s'' and their tokens" % a_word, 'h2')
             for candidate in candidates:
-                print("\tCandidate #%s: %s (%s) => %s" % (
+                print("\tCandidate #%s: %s (%s) => set(%s)" % (
                 candidate.id, candidate.synset.get_synsetid(), candidate.synset.get_terms_text(), candidate.tokens))
         self.word_cache[cache_key] = candidates
         return candidates
 
     def build_lelesk_set(self, a_sid):
+        if a_sid in self.lelesk_tokens_sid_cache:
+            return self.lelesk_tokens_sid_cache[a_sid]
         ''' Try to get by WN30 synsetID first, then try by GWN synsetID
         '''
         lelesk_tokens = []
@@ -178,10 +188,11 @@ class LeLeskWSD:
             print("")
 
         header("Lelesk tokens", 'h3')
-        print("\t\tFull list          : %s" % lelesk_tokens)
-        uniquified_lelesk_tokens = uniquify(lelesk_tokens)
-        print("\t\tFinal set (no dup) : %s" % uniquified_lelesk_tokens)
+        print("\t\tFull list                    : %s" % lelesk_tokens)
+        uniquified_lelesk_tokens = [ w for w in uniquify(lelesk_tokens) if w not in stopwords.words('english') ]
+        print("\t\tFull set (no dup & stopwords): %s" % uniquified_lelesk_tokens)
 
+        self.lelesk_tokens_sid_cache[a_sid] = uniquified_lelesk_tokens
         return uniquified_lelesk_tokens
         pass
 
@@ -202,7 +213,7 @@ class LeLeskWSD:
         tokens = self.tokenize(sentence_text)
         # Lemmatization
         tokens = [ self.lemmatize(x) for x in tokens ] + tokens
-        return [ x.lower() for x in tokens ]
+        return [ w.lower() for w in tokens if w not in stopwords.words('english') ]
 
     def lelesk_wsd(self, word, sentence_text, expected_sense='', lemmatizing=True, pos=None, context=None):
         ''' Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0
@@ -239,7 +250,7 @@ class LeLeskWSD:
             print("-" * 40)
             print("WSD for the word: %s" % (word,))
             print("Sentence text   : %s" % (sentence_text,))
-            print("Context bag     : %s" % context)
+            print("Context bag     : set(%s)" % context)
             print("POS             : %s" % (pos,))
             if expected_sense:
                 print('Expected sense  : %s' % (expected_sense,))

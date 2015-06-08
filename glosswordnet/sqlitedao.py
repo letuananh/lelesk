@@ -216,9 +216,9 @@ class SQLiteGWordNet:
         with Execution(self.schema) as exe:
             # synset;
             if pos:
-                results = exe.schema.synset.select(where='pos = ? AND id IN (SELECT sid FROM term where term=?)', values=[pos, term])
+                results = exe.schema.synset.select(where='pos = ? AND id IN (SELECT sid FROM term where lower(term)=?)', values=[pos, term.lower()])
             else:
-                results = exe.schema.synset.select(where='id IN (SELECT sid FROM term where term=?)', values=[term])
+                results = exe.schema.synset.select(where='id IN (SELECT sid FROM term where lower(term)=?)', values=[term.lower()])
             if results:
                 if sid_only:
                     return results
