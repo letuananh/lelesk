@@ -18,6 +18,9 @@ Usage:
     # Build lelesk set
     python3 wsdtk.py -g ~/wordnet/gwn.db -w ~/wordnet/sqlite-30.db -l v01775535 
 
+    # test WSD batch mode
+    python3 wsdtk.py -b data/test.txt -o data/test_summary.txt > data/test_details.txt
+
 
 @author: Le Tuan Anh <tuananh.ke@gmail.com>
 '''
@@ -243,6 +246,17 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
             outfile.write("results\tword\tcorrect_sense\tsuggested_sense\tsentence_text\n")
             for line in outputlines:
                 outfile.write('%s\t%s\t%s\t%s\t%s\n' % (line.results ,line.word ,line.correct_sense ,line.suggested_sense ,line.sentence_text))
+            # write summary
+            outfile.write("\n")
+            outfile.write("")
+            outfile.write("| Information                         |    Stat |\n")
+            outfile.write("|:------------------------------------|--------:|\n")
+            outfile.write("| Correct sense ranked the first      |   %s |\n" % str(c['Match']).rjust(5, ' '))
+            outfile.write("| Correct sense ranked the 2nd or 3rd |   %s |\n" % str(c['InTop3']).rjust(5, ' '))
+            outfile.write("| Wrong                               |   %s |\n" % str(c['Wrong']).rjust(5, ' '))
+            outfile.write("| NoSense                             |   %s |\n" % str(c['NoSense']).rjust(5, ' '))
+            outfile.write("| TotalSense                          |   %s |\n" % str(c['TotalSense']).rjust(5, ' '))
+
         jilog("Done.")
     jilog("Batch job finished")
 
