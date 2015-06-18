@@ -18,8 +18,11 @@ Usage:
     # Build lelesk set
     python3 wsdtk.py -g ~/wordnet/gwn.db -w ~/wordnet/sqlite-30.db -l v01775535 
 
+    # Test retrieving sense candidates for a word
+    python3 wsdtk.py --candidates "love" --pos "v"
+
     # test WSD batch mode
-    python3 wsdtk.py -b data/test.txt -o data/test_summary.txt > data/test_details.txt
+    python3 wsdtk.py -b data/test.txt -o data/test_report.txt -r data/test_debug.txt
 
 
 @author: Le Tuan Anh <tuananh.ke@gmail.com>
@@ -58,14 +61,16 @@ __status__ = "Prototype"
 import os.path
 import argparse
 from puchikarui import Schema, Execution#, DataSource, Table
-from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, jilog
+from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, jilog, TextReport, Table
 from glosswordnet import XMLGWordNet, SQLiteGWordNet
 import itertools
 from wordnetsql import WordNetSQL as WSQL
 from collections import defaultdict as dd
 from collections import namedtuple
 from lelesk import LeLeskWSD
+from lelesk import LeskCache
 from config import LLConfig
+from common import dump_synsets, dump_synset, get_synset_by_id, get_synset_by_sk, get_synsets_by_term
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
@@ -78,41 +83,12 @@ DB_INIT_SCRIPT = LLConfig.DB_INIT_SCRIPT
 
 #-----------------------------------------------------------------------
 
-def get_synset_by_id(wng_db_loc, synsetid):
-    ''' Search synset in WordNet Gloss Corpus by synset ID 
-    '''
-    db = SQLiteGWordNet(wng_db_loc)
-    synsets = db.get_synset_by_id(synsetid)
-    dump_synsets(synsets)
-
-def get_synset_by_sk(wng_db_loc, sk):
-    ''' Search synset in WordNet Gloss Corpus by sensekey 
-    '''
-    db = SQLiteGWordNet(wng_db_loc)
-    synsets = db.get_synset_by_sk(sk)
-    dump_synsets(synsets)
-    
-def get_synsets_by_term(wng_db_loc, t, pos):
-    ''' Search synset in WordNet Gloss Corpus by term 
-    '''
-    db = SQLiteGWordNet(wng_db_loc)
-    synsets = db.get_synsets_by_term(t, pos)
-    dump_synsets(synsets)
-
 def generate_tokens(wsd):
     ''' Pre-generate LESK tokens for all synsets for faster WSD
     '''
-    header("Pre-generate LESK tokens for all synsets for faster WSD")
-    print("Path to WordNet Gloss Corpus: %s" % wsd.wng_db_loc)
-    print("Path to WordNet 3.0 SQLite  : %s" % wsd.wn30_loc)
-    print("Path to LeLesk cache DB     : %s" % LLConfig.LELESK_CACHE_DB_LOC)
-    print("Debug info will be stored in: %s" % LLConfig.LELESK_CACHE_DEBUG_DIR)
-
-
-
-    LELESK_CACHE_DB_INIT_SCRIPT = os.path.expanduser('./script/lesk_cache.sql')
-    LELESK_CACHE_DB_LOC         = os.path.expanduser('./data/lesk_cache.db')
-    LELESK_CACHE_DEBUG_DIR      = os.path.expanduser('./debug')
+    lesk_cache  = LeskCache(wsd)
+    lesk_cache.info()
+    lesk_cache.generate()
 
 #-----------------------------------------------------------------------
 
@@ -142,12 +118,13 @@ NTUMC_PRONOUNS= ['77000100-n', '77000057-n', '77000054-a', '77000054-n', '770000
                  ]
 
 def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=False, assume_perfect_POS=False, lemmatizing=False, pretokenized=False):
+    tbatch = Timer() # total time used to process this batch
+    tbatch.start("Batch WSD started | Method=%s | File = %s" % (method, infile_loc))
     t = Timer()
     t.start("Reading file %s" % infile_loc)
     lines = open(os.path.expanduser(infile_loc)).readlines()
     t.end("File has been loaded")
     
-    print(('-' * 80))
     c=Counter('Match InTop3 Wrong NoSense TotalSense'.split())
     outputlines = []
     # Counters for different type of words
@@ -159,7 +136,10 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
 
     # sample line in input file:
     # adventure 00796315-n  n   The Adventure of the Speckled Band  the|adventure|of|the|speckle|band
+    total_lines = len(lines)
+    processed = 0
     for line in lines:
+        processed += 1
         if line.startswith('#'):
             # it is a comment line
             continue
@@ -193,7 +173,7 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
 
             results = 'X'
             # Perform WSD on given word & sentence
-            t.start()
+            t.start('Analysing word ["%s"] on sentence: %s' % (word, sentence_text))
             if method == 'mfs':
                 # jilog("Activating MFS WSD")
                 scores = wsd_obj.mfs_wsd(word, sentence_text, correct_sense, lemmatizing=lemmatizing, pos=pos)
@@ -234,40 +214,45 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
                 outputlines.append(OutputLine(results, word, correct_sense, suggested_senses[0], sentence_text))
             else:
                 outputlines.append(OutputLine(results, word, correct_sense, "", sentence_text))
-            # Debug information (all scores)
-            #print ("All scores")
-            #for score in scores[:3]:
-            #    print("Sense: %s - Score: %s - Definition: %s" % (
-            #        score.candidate.synset.get_synsetid()
-            #        , score.score
-            #        , score.candidate.synset.get_orig_gloss()))
-            #for score in scores[3:]:
-            #    print("Sense: %s - Score: %s - Definition: %s" % (
-            #        score.candidate.synset.get_synsetid()
-            #        , score.score
-            #        , score.candidate.synset.get_orig_gloss()))
-            print("")
-            t.end('Analysed word ["%s"] on sentence: %s' % (word, sentence_text))
-            print(('-' * 80))
-    print("-" * 80)
+            t.end('Analysed word ["%s"] (%s/%s completed)' % (word, processed, total_lines))
     print("")
-    c.summarise()
+    tbatch.start("Batch WSD finished | Method=%s | File = %s" % (method, infile_loc))
+    
 
     if outfile_loc:
         jilog("Writing output file ==> %s..." % (outfile_loc,))
-        save_counter_to_file(match_count, outfile_loc + '.match.txt')
-        save_counter_to_file(top3_count, outfile_loc + '.top3.txt')
-        save_counter_to_file(wrong_count, outfile_loc + '.wrong.txt')
-        save_counter_to_file(nosense_count, outfile_loc + '.nosense.txt')
 
         with open(outfile_loc, 'w') as outfile:
-            outfile.write("results\tword\tcorrect_sense\tsuggested_sense\tsentence_text\n")
+            outfile.write("Sections\n")
+            outfile.write("::SENTENCES::\n")
+            outfile.write("::MATCH-TOKENS::\n")
+            outfile.write("::TOP3-TOKENS::\n")
+            outfile.write("::WRONG-TOKENS::\n")
+            outfile.write("::NOSENSE-TOKENS::\n")
+            outfile.write("::SUMMARY::\n")
+            outfile.write(("-" * 20) + '\n')
+
+            outfile.write("::SENTENCES::\n")
+            tbl = Table()
+            tbl.add_row("results word correct_sense suggested_sense sentence_text".split())
             for line in outputlines:
-                outfile.write('%s\t%s\t%s\t%s\t%s\n' % (line.results ,line.word ,line.correct_sense ,line.suggested_sense ,line.sentence_text))
+                tbl.add_row((line.results ,line.word ,line.correct_sense ,line.suggested_sense ,line.sentence_text))
+            print_tbl = lambda x: outfile.write('%s\n' % x)
+            # write table
+            tbl.print(print_func=print_tbl)
+            
+            outfile.write("\n")
+            # dump counter tokens
+            dump_counter(match_count, outfile, '::MATCH-TOKENS::')
+            dump_counter(top3_count, outfile, '::TOP3-TOKENS::')
+            dump_counter(wrong_count, outfile, '::WRONG-TOKENS::')
+            dump_counter(nosense_count, outfile, '::NOSENSE-TOKENS::')
             # write summary
             totalcount = len(match_count) + len(top3_count) + len(wrong_count) + len(nosense_count)
             outfile.write("\n")
-            outfile.write("")
+            outfile.write("::SUMMARY::\n")
+            outfile.write("%s\n" % (tbatch))
+            outfile.write("\n")
             outfile.write("| Information                         |    Instance | Classes |\n")
             outfile.write("|:------------------------------------|--------:|-----------:\n")
             outfile.write("| Correct sense ranked the first      |   %s | %s |\n" % (str(c['Match']).rjust(5, ' '), str(len(match_count)).rjust(5, ' ')))
@@ -275,71 +260,24 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
             outfile.write("| Wrong                               |   %s | %s |\n" % (str(c['Wrong']).rjust(5, ' '), str(len(wrong_count)).rjust(5, ' ')))
             outfile.write("| NoSense                             |   %s | %s |\n" % (str(c['NoSense']).rjust(5, ' '), str(len(nosense_count)).rjust(5, ' ')))
             outfile.write("| TotalSense                          |   %s | %s |\n" % (str(c['TotalSense']).rjust(5, ' '), str('').rjust(5, ' '))) # totalcount is wrong!
-
-        jilog("Done.")
     jilog("Batch job finished")
 
-    # Store counters for debugging
+def dump_counter(counter, file_obj, header):
+    tbl = Table()
+    tbl.add_row(["Synset ID", "Lemma", "Count"])
+    items = counter.sorted_by_count()
+    for k, v in items:
+        tbl.add_row(k.split('\t') + [v])
 
-    print('Done!')
+    print_tbl = lambda x: file_obj.write('%s\n' % x)
+    file_obj.write("\n")
 
-def save_counter_to_file(counter, filename):
-    with open(filename, 'w') as output:
-        items = counter.sorted_by_count()
-        for k, v in items:
-            output.write('%s\t%s\n' % (k, v))
+    # write header
+    file_obj.write("\n%s\n" % header)
+    # write table
+    tbl.print(print_func=print_tbl)
 
 #-----------------------------------------------------------------------
-
-def dump_synsets(synsets):
-    ''' Dump a SynsetCollection to stdout
-    '''
-    if synsets:
-        for synset in synsets:
-            dump_synset(synset)
-        print("Found %s synset(s)" % synsets.count())
-    else:
-        print("None was found!")
-
-def dump_synset(ss, compact_gloss=False, compact_tags=False, more_compact=True):
-    '''
-    Print synset details for debugging purpose
-    '''
-    print("-" * 80)
-    if more_compact:
-        print("Synset: %s (terms=%s | keys=%s)" % (ss.get_synsetid(), ss.terms, ss.keys))
-    else:
-        print("Synset: %s" % ss)
-    print("-" * 80)
-
-    for rgloss in ss.raw_glosses:
-        if more_compact:
-            if rgloss.cat != 'orig':
-                continue
-        print(rgloss)
-
-    gloss_count = itertools.count(1)
-    for gloss in ss.glosses:
-        print("Gloss #%s: %s" % (next(gloss_count), gloss))
-
-        # Dump gloss items
-        if compact_gloss:
-            print("\tTokens => %s" % gloss.get_gramwords())
-        else:
-            for item in gloss.items:
-                # print("\t%s - { %s }" % (uniquify(item.get_gramwords()), item))
-                print("\t%s - { %s }" % (set(item.get_gramwords()), item))
-            print("\t" + ("-" * 10))
-        
-        # Dump tags
-        if compact_tags:
-            print("\tTags => %s" % gloss.get_tagged_sensekey())
-        else:
-            for tag in gloss.tags:
-                print("\t%s" % tag)
-    print('')
-
-#--------------------------------------------------------
 
 def main():
     '''Main entry of wng2db
@@ -375,6 +313,8 @@ def main():
 
     parser.add_argument('-d', '--leskdb', help='Generate tokens for all synsets for all synsets for faster WSD', action="store_true")
 
+    parser.add_argument('-r', '--report', help='Path to report file (default will be stdout)')
+
     # Optional argument(s)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--verbose", action="store_true")
@@ -385,21 +325,24 @@ def main():
 
     wng_db_loc = args.glosswn if args.glosswn else WORDNET_30_GLOSS_DB_PATH
     wn30_loc = args.wnsql if args.wnsql else WORDNET_30_PATH
-    wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet)
+    report = TextReport(args.report) if args.report else TextReport()
+    wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet, report_file=report)
     wsd_method = args.method if args.method else 'lelesk'
+    
+
     # Now do something ...
     if args.synset:
-        get_synset_by_id(wng_db_loc, args.synset)
+        get_synset_by_id(wng_db_loc, args.synset, report)
     elif args.sensekey:
-        get_synset_by_sk(wng_db_loc, args.sensekey)
+        get_synset_by_sk(wng_db_loc, args.sensekey, report)
     elif args.term:
-        get_synsets_by_term(wng_db_loc, args.term, args.pos)
+        get_synsets_by_term(wng_db_loc, args.term, args.pos, report_file=report)
     # Retrieve lelesk tokens for a synset (given a synsetid)
     elif args.lelesk:
         wsd.build_lelesk_set(args.lelesk)
     # Retrieve all synset candidates and their tokens for a word
     elif args.candidates:
-        wsd.build_lelesk_for_word(args.wsd)
+        wsd.build_lelesk_for_word(args.candidates, args.pos)
     # perform WSD for a single word given a context
     elif args.wsd:
         word = args.wsd
@@ -410,10 +353,7 @@ def main():
             wsd.lelesk_wsd(word, context)
     # batch mode WSD
     elif args.batch:
-        t1 = Timer()
-        t1.start("Batch WSD started | Method=%s | File = %s" % (wsd_method, args.batch))
         batch_wsd(args.batch, wsd, args.output, wsd_method)
-        t1.end("Batch WSD ended | Method=%s | File = %s" % (wsd_method, args.batch))
         pass
     elif args.leskdb:
         generate_tokens(wsd)
@@ -427,4 +367,4 @@ if __name__ == "__main__":
 
 # Note:
 # How to use this tool
-# ./main.py candidates -i "dear|a"
+# ./main.py --candidates "love" --pos "v"

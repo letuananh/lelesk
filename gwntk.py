@@ -60,7 +60,7 @@ from wordnetsql import WordNetSQL as WSQL
 from collections import defaultdict as dd
 from collections import namedtuple
 from config import LLConfig
-
+from common import dump_synsets, dump_synset, get_synset_by_id, get_synset_by_sk, get_synsets_by_term
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
@@ -91,70 +91,7 @@ def cache_all_synsets(wng_db_loc):
     db.cache_all_hypehypo()
     t.end("Done caching!")
 
-def get_synset_by_id(wng_db_loc, synsetid):
-    db = SQLiteGWordNet(wng_db_loc)
-    synsets = db.get_synset_by_id(synsetid)
-    dump_synsets(synsets)
-
-def get_synset_by_sk(wng_db_loc, sk):
-    db = SQLiteGWordNet(wng_db_loc)
-    synsets = db.get_synset_by_sk(sk)
-    dump_synsets(synsets)
-    
-def get_synsets_by_term(wng_db_loc, t, pos):
-    db = SQLiteGWordNet(wng_db_loc)
-    synsets = db.get_synsets_by_term(t, pos)
-    dump_synsets(synsets)
-
 #-----------------------------------------------------------------------
-
-def dump_synsets(synsets):
-    ''' Dump a SynsetCollection to stdout
-    '''
-    if synsets:
-        for synset in synsets:
-            dump_synset(synset)
-        print("Found %s synset(s)" % synsets.count())
-    else:
-        print("None was found!")
-
-def dump_synset(ss, compact_gloss=False, compact_tags=False, more_compact=True):
-    '''
-    Print synset details for debugging purpose
-    '''
-    print("-" * 80)
-    if more_compact:
-        print("Synset: %s (terms=%s | keys=%s)" % (ss.get_synsetid(), ss.terms, ss.keys))
-    else:
-        print("Synset: %s" % ss)
-    print("-" * 80)
-
-    for rgloss in ss.raw_glosses:
-        if more_compact:
-            if rgloss.cat != 'orig':
-                continue
-        print(rgloss)
-
-    gloss_count = itertools.count(1)
-    for gloss in ss.glosses:
-        print("Gloss #%s: %s" % (next(gloss_count), gloss))
-
-        # Dump gloss items
-        if compact_gloss:
-            print("\tTokens => %s" % gloss.get_gramwords())
-        else:
-            for item in gloss.items:
-                # print("\t%s - { %s }" % (uniquify(item.get_gramwords()), item))
-                print("\t%s - { %s }" % (set(item.get_gramwords()), item))
-            print("\t" + ("-" * 10))
-        
-        # Dump tags
-        if compact_tags:
-            print("\tTags => %s" % gloss.get_tagged_sensekey())
-        else:
-            for tag in gloss.tags:
-                print("\t%s" % tag)
-    print('')
 
 def test_extract_xml():
     ''' Test data extraction from XML file
