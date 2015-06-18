@@ -90,6 +90,7 @@ def generate_tokens(wsd):
     lesk_cache.info()
     lesk_cache.setup()
     lesk_cache.generate()
+    print("Done!")
 
 #-----------------------------------------------------------------------
 

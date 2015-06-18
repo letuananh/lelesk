@@ -487,8 +487,9 @@ class LeskCache:
             report_file = self.report_file
         synsets = self.wsd.gwn.all_synsets(deep_select=False)
         with Execution(self.db) as exe:
-            for synset in synsets:
-                jilog("Generating tokens for %s" % (synset.id))
+            total_synsets = len(synsets)
+            for idx, synset in enumerate(synsets):
+                jilog("Generating tokens for %s (%s/%s)" % (synset.id, idx, total_synsets))
                 debug_file = TextReport(os.path.join(self.debug_dir, synset.offset + '.txt'))
                 tokens = self.wsd.build_lelesk_set(synset.id, debug_file)
                 for token in tokens:
