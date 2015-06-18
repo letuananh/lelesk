@@ -3,7 +3,7 @@ DROP TABLE IF EXISTS synset;
 DROP TABLE IF EXISTS sensekey;
 DROP TABLE IF EXISTS term;
 
-# synset: synsetid offset pos synsetid_wn30 freq
+-- synset: synsetid offset pos synsetid_wn30 freq
 CREATE TABLE IF NOT EXISTS synset  (
    synsetid TEXT
    ,offset  TEXT
@@ -12,19 +12,19 @@ CREATE TABLE IF NOT EXISTS synset  (
    ,freq    TEXT
 );
 
-# sensekey: synsetid sensekey
+-- sensekey: synsetid sensekey
 CREATE TABLE IF NOT EXISTS sensekey (
 	synsetid TEXT
 	,sensekey TEXT
 );
 
-# term: synsetid term
+-- term: synsetid term
 CREATE TABLE IF NOT EXISTS term (
 	synsetid TEXT
 	,term TEXT
 );
 
-# tokens: synsetid token
+-- tokens: synsetid token
 CREATE TABLE IF NOT EXISTS tokens  (
     synsetid TEXT
    ,token    TEXT

@@ -86,8 +86,9 @@ DB_INIT_SCRIPT = LLConfig.DB_INIT_SCRIPT
 def generate_tokens(wsd):
     ''' Pre-generate LESK tokens for all synsets for faster WSD
     '''
-    lesk_cache  = LeskCache(wsd)
+    lesk_cache  = LeskCache(wsd, report_file=wsd.report_file)
     lesk_cache.info()
+    lesk_cache.setup()
     lesk_cache.generate()
 
 #-----------------------------------------------------------------------

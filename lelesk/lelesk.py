@@ -47,7 +47,7 @@ import operator
 import itertools
 from collections import defaultdict as dd
 from collections import namedtuple
-from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, TextReport
+from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, TextReport, jilog
 from glosswordnet import XMLGWordNet, SQLiteGWordNet
 from wordnetsql import WordNetSQL as WSQL
 
@@ -349,7 +349,7 @@ class LeskCacheSchema(Schema):
         self.add_table('term', 'synsetid term'.split())
 
 class LeskCache:
-    def __init__(self, wsd, db_file=None, debug_dir=None):
+    def __init__(self, wsd, db_file=None, debug_dir=None, report_file=None):
         ''' Create an instance of LeskCache
 
         Arguments:
@@ -358,8 +358,13 @@ class LeskCache:
             debug_dir -- Details of how tokens are generated for synset will be stored here.
             (Default values are defined in config.py)
         '''
+        if report_file is None:
+            self.report_file = TextReport()
+        else:
+            self.report_file = report_file
         self.wsd         = wsd
         self.db_file     = db_file if db_file else LLConfig.LELESK_CACHE_DB_LOC
+        self.db          = LeskCacheSchema(self.db_file)
         self.script_file = LLConfig.LELESK_CACHE_DB_INIT_SCRIPT
         self.debug_dir   = debug_dir if debug_dir else LLConfig.LELESK_CACHE_DEBUG_DIR
 
@@ -372,7 +377,7 @@ class LeskCache:
         print("--")
         print("")
 
-    def generate(self):
+    def validate(self):
         gwn = self.wsd.gwn
         wn = self.wsd.wn
         t = Timer()
@@ -464,3 +469,30 @@ class LeskCache:
             else:
                 c.count("WN30 Found")
         c.summarise()
+
+    def setup(self):
+        ''' Setup cache DB'''
+        with Execution(self.db) as exe:
+            print('Creating database file ...')
+            exe.ds.executefile(self.script_file)
+            try:
+                for token in exe.schema.tokens.select():
+                    print(meta)
+            except Exception as e:
+                print("Error while setting up database ... e = %s" % e)
+        pass # end setup()
+
+    def generate(self, report_file=None):
+        if report_file is None:
+            report_file = self.report_file
+        synsets = self.wsd.gwn.all_synsets(deep_select=False)
+        with Execution(self.db) as exe:
+            for synset in synsets:
+                jilog("Generating tokens for %s" % (synset.id))
+                debug_file = TextReport(os.path.join(self.debug_dir, synset.offset + '.txt'))
+                tokens = self.wsd.build_lelesk_set(synset.id, debug_file)
+                for token in tokens:
+                    exe.schema.tokens.insert([synset.id, token])
+                report_file.print("tokens of %s => %s" % (synset.id, tokens))
+            exe.ds.commit()
+

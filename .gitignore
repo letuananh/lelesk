@@ -1,5 +1,6 @@
 *~
 *.pyc
+debug
 debug.txt
 sample.out.txt
 data/specall*.txt
