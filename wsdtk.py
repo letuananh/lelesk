@@ -57,44 +57,62 @@ __status__ = "Prototype"
 # import sys
 import os.path
 import argparse
+from puchikarui import Schema, Execution#, DataSource, Table
 from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, jilog
 from glosswordnet import XMLGWordNet, SQLiteGWordNet
 import itertools
 from wordnetsql import WordNetSQL as WSQL
 from collections import defaultdict as dd
 from collections import namedtuple
-
 from lelesk import LeLeskWSD
+from config import LLConfig
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
-WORDNET_30_PATH = os.path.expanduser('~/wordnet/sqlite-30.db')
-# WordNet SQLite can be downloaded from:
-#       http://sourceforge.net/projects/wnsql/files/wnsql3/sqlite/3.0/ 
-
-WORDNET_30_GLOSSTAG_PATH = os.path.expanduser('~/wordnet/glosstag')
-WORDNET_30_GLOSS_DB_PATH = os.path.expanduser('~/wordnet/glosstag.db')
-# Gloss WordNet can be downloaded from: 
-#       http://wordnet.princeton.edu/glosstag.shtml
-
-DB_INIT_SCRIPT = os.path.expanduser('./script/wngdb.sql')
+# >>> WARNING: Do NOT change these values here. Change config.py instead!
+#
+WORDNET_30_PATH = LLConfig.WORDNET_30_PATH
+WORDNET_30_GLOSSTAG_PATH = LLConfig.WORDNET_30_GLOSSTAG_PATH
+WORDNET_30_GLOSS_DB_PATH = LLConfig.WORDNET_30_GLOSS_DB_PATH
+DB_INIT_SCRIPT = LLConfig.DB_INIT_SCRIPT
 
 #-----------------------------------------------------------------------
 
 def get_synset_by_id(wng_db_loc, synsetid):
+    ''' Search synset in WordNet Gloss Corpus by synset ID 
+    '''
     db = SQLiteGWordNet(wng_db_loc)
     synsets = db.get_synset_by_id(synsetid)
     dump_synsets(synsets)
 
 def get_synset_by_sk(wng_db_loc, sk):
+    ''' Search synset in WordNet Gloss Corpus by sensekey 
+    '''
     db = SQLiteGWordNet(wng_db_loc)
     synsets = db.get_synset_by_sk(sk)
     dump_synsets(synsets)
     
 def get_synsets_by_term(wng_db_loc, t, pos):
+    ''' Search synset in WordNet Gloss Corpus by term 
+    '''
     db = SQLiteGWordNet(wng_db_loc)
     synsets = db.get_synsets_by_term(t, pos)
     dump_synsets(synsets)
+
+def generate_tokens(wsd):
+    ''' Pre-generate LESK tokens for all synsets for faster WSD
+    '''
+    header("Pre-generate LESK tokens for all synsets for faster WSD")
+    print("Path to WordNet Gloss Corpus: %s" % wsd.wng_db_loc)
+    print("Path to WordNet 3.0 SQLite  : %s" % wsd.wn30_loc)
+    print("Path to LeLesk cache DB     : %s" % LLConfig.LELESK_CACHE_DB_LOC)
+    print("Debug info will be stored in: %s" % LLConfig.LELESK_CACHE_DEBUG_DIR)
+
+
+
+    LELESK_CACHE_DB_INIT_SCRIPT = os.path.expanduser('./script/lesk_cache.sql')
+    LELESK_CACHE_DB_LOC         = os.path.expanduser('./data/lesk_cache.db')
+    LELESK_CACHE_DEBUG_DIR      = os.path.expanduser('./debug')
 
 #-----------------------------------------------------------------------
 
@@ -355,6 +373,8 @@ def main():
     parser.add_argument('-o', '--output', help='Output log for batch mode')
     parser.add_argument('-m', '--method', help='WSD method (mfs/lelesk)')
 
+    parser.add_argument('-d', '--leskdb', help='Generate tokens for all synsets for all synsets for faster WSD', action="store_true")
+
     # Optional argument(s)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--verbose", action="store_true")
@@ -395,6 +415,8 @@ def main():
         batch_wsd(args.batch, wsd, args.output, wsd_method)
         t1.end("Batch WSD ended | Method=%s | File = %s" % (wsd_method, args.batch))
         pass
+    elif args.leskdb:
+        generate_tokens(wsd)
     else:
         parser.print_help()
     pass # end main()

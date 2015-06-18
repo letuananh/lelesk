@@ -59,20 +59,17 @@ import itertools
 from wordnetsql import WordNetSQL as WSQL
 from collections import defaultdict as dd
 from collections import namedtuple
+from config import LLConfig
 
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
-WORDNET_30_PATH = os.path.expanduser('~/wordnet/sqlite-30.db')
-# WordNet SQLite can be downloaded from:
-#       http://sourceforge.net/projects/wnsql/files/wnsql3/sqlite/3.0/ 
-
-WORDNET_30_GLOSSTAG_PATH = os.path.expanduser('~/wordnet/glosstag')
-WORDNET_30_GLOSS_DB_PATH = os.path.expanduser('~/wordnet/glosstag.db')
-# Gloss WordNet can be downloaded from: 
-#       http://wordnet.princeton.edu/glosstag.shtml
-
-DB_INIT_SCRIPT = os.path.expanduser('./script/wngdb.sql')
+# >>> WARNING: Do NOT change these values here. Change config.py instead!
+#
+WORDNET_30_PATH = LLConfig.WORDNET_30_PATH
+WORDNET_30_GLOSSTAG_PATH = LLConfig.WORDNET_30_GLOSSTAG_PATH
+WORDNET_30_GLOSS_DB_PATH = LLConfig.WORDNET_30_GLOSS_DB_PATH
+DB_INIT_SCRIPT = LLConfig.DB_INIT_SCRIPT
 
 #-----------------------------------------------------------------------
 
