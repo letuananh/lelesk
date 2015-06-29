@@ -62,6 +62,10 @@ class WordNetSQL:
         self.schema = WordNet3Schema(self.db_path)
         self.tagcount_cache = dd(lambda: 0)
     
+    def get_all_synsets(self):
+        with Execution(self.schema) as exe:
+            return exe.schema.wss.select(columns=['synsetid', 'lemma', 'sensekey', 'tagcount'])
+
     def cache_tagcounts(self):
         with Execution(self.schema) as exe:
             results = exe.schema.wss.select(columns=['synsetid', 'tagcount'])

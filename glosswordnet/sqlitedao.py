@@ -182,13 +182,16 @@ class SQLiteGWordNet:
                 return self.results_to_synsets(results, exe, synsets)
         return synsets
 
-    def all_synsets(self, synsets=None):
+    def all_synsets(self, synsets=None, deep_select=True):
         synsets = SynsetCollection()
         with Execution(self.schema) as exe:
             # synset;
             results = exe.schema.synset.select()
             if results:
-                return self.results_to_synsets(results, exe, synsets)
+                if deep_select:
+                    return self.results_to_synsets(results, exe, synsets)
+                else:
+                    return results
         return synsets
         
     def get_synset_by_sk(self, sensekey):

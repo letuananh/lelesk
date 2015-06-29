@@ -2,17 +2,13 @@
 # -*- coding: utf-8 -*-
 
 '''
-Le's LESK - Word Sense Disambiguation Package
+Global configuration file for LeLesk
 Latest version can be found at https://github.com/letuananh/lelesk
-
-Usage:
-
-    [TODO] WIP
 
 @author: Le Tuan Anh <tuananh.ke@gmail.com>
 '''
 
-# Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
+# Copyright (c) 2015, Le Tuan Anh <tuananh.ke@gmail.com>
 #
 #Permission is hereby granted, free of charge, to any person obtaining a copy
 #of this software and associated documentation files (the "Software"), to deal
@@ -41,4 +37,21 @@ __maintainer__ = "Le Tuan Anh"
 __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
 
-from lelesk.lelesk import LeLeskWSD, LeskCache
+import os
+
+class LLConfig:
+    WORDNET_30_PATH = os.path.expanduser('~/wordnet/sqlite-30.db')
+    # WordNet SQLite can be downloaded from:
+    #       http://sourceforge.net/projects/wnsql/files/wnsql3/sqlite/3.0/ 
+
+    WORDNET_30_GLOSSTAG_PATH = os.path.expanduser('~/wordnet/glosstag')
+    WORDNET_30_GLOSS_DB_PATH = os.path.expanduser('~/wordnet/glosstag.db')
+    # Gloss WordNet can be downloaded from: 
+    #       http://wordnet.princeton.edu/glosstag.shtml
+
+    DB_INIT_SCRIPT = os.path.expanduser('./script/wngdb.sql')
+    # script used to initialise WordNet Gloss database 
+    
+    LELESK_CACHE_DB_INIT_SCRIPT = os.path.expanduser('./script/lesk_cache.sql')
+    LELESK_CACHE_DB_LOC         = os.path.expanduser('./data/lesk_cache.db')
+    LELESK_CACHE_DEBUG_DIR      = os.path.expanduser('./debug')

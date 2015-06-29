@@ -1,13 +1,16 @@
 #!/usr/bin/sh
 
-python3 wsdtk.py -b 'data/specall.txt' -o 'data/specall_ll_summary.txt' > 'data/specall_ll_details.txt'
-python3 wsdtk.py -b 'data/specall.txt' -o 'data/specall_mfs_summary.txt' -m mfs > 'data/specall_mfs_details.txt'
+python3 wsdtk.py -b 'data/specall.txt' -o 'data/specall_ll_report.txt' -r 'data/specall_ll_debug.txt'
+python3 wsdtk.py -b 'data/specall.txt' -o 'data/specall_mfs_report.txt' -m mfs -r 'data/specall_mfs_debug.txt'
 
 
 echo '-------------------------------------------------------'
 echo 'LELESK'
-tail -n 7 data/specall_ll_summary.txt
+echo ''
+tail -n 7 data/specall_ll_report.txt
+echo ''
 echo '-------------------------------------------------------'
 echo 'MFS'
-tail -n 7 data/specall_mfs_summary.txt
+echo ''
+tail -n 7 data/specall_mfs_report.txt
 
