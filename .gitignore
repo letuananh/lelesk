@@ -4,6 +4,9 @@ debug.txt
 sample.out.txt
 data/specall*.txt
 data/specdev*.txt
+data/speckled*.txt
+data/sample*.txt
+data/semcor*.txt
 data/test*.txt
 bs4/
 lelesk.model.dat
