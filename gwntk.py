@@ -189,6 +189,8 @@ def dev_mode(wng_db_loc):
 #--------------------------------------------------------
 
 def xml2db(xml_files, db):
+    ''' Convert a XML file of Gloss WordNet into SQLite
+    '''
     t = Timer()
 
     header("Extracting Gloss WordNet (XML)")
@@ -205,6 +207,8 @@ def xml2db(xml_files, db):
     pass
 
 def convert(wng_loc, wng_db_loc, createdb):
+    ''' Convert Gloss WordNet into SQLite
+    '''
     merged_folder = os.path.join(wng_loc, 'merged')
     
     print("Path to glosstag folder: %s" % (merged_folder))
