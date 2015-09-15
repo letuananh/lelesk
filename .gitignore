@@ -16,5 +16,6 @@ chirptext
 nltk
 puchikarui
 semcor_wn30.out.txt
+data/lesk_cache.db
 lelesk.sublime-project
 lelesk.sublime-workspace

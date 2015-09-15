@@ -42,3 +42,8 @@ __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
 
 from lelesk.lelesk import LeLeskWSD, LeskCache
+
+from main import XMLCache, SenseGloss, SenseInfo, GlossInfo, WordNetSQL, GlossTokens, WSDCandidate, WSDResources, get_sense_candidates, lelesk_wsd
+
+__all__ = ['LeLeskWSD', 'LeskCache', 'XMLCache', 'SenseGloss', 'SenseInfo', 'GlossInfo', 'WordNetSQL', 'GlossTokens', 'WSDCandidate', 'WSDResources', 'get_sense_candidates', 'lelesk_wsd']
+

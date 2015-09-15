@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/bin/bash
 
 function link_folder {
 	FOLDER_PATH=$1
@@ -20,7 +20,12 @@ function link_file {
 	fi
 }
 
-link_folder ~/workspace/chirptext chirptext
-link_folder ~/workspace/puchikarui puchikarui
-link_folder ~/workspace/nltk/nltk nltk
+link_folder `readlink -f ../chirptext/chirptext` chirptext
+link_folder `readlink -f ../puchikarui/puchikarui` puchikarui
+link_folder `readlink -f ../nltk/nltk` nltk
+link_folder `readlink -f ../chirptext/chirptext` lelesk/chirptext
+link_folder `readlink -f ../puchikarui/puchikarui` lelesk/puchikarui
+link_folder `readlink -f ../nltk/nltk` lelesk/nltk
+
+
 git submodule init && git submodule update
