@@ -52,9 +52,10 @@ from .config import LLConfig
 from .glosswordnet import XMLGWordNet, SQLiteGWordNet
 from .wordnetsql import WordNetSQL as WSQL
 
-#-----------------------------------------------------------------------
+########################################################################
 # CONFIGURATION
-#-----------------------------------------------------------------------
+########################################################################
+
 # >>> WARNING: Do NOT change these values here. Change config.py instead!
 #
 WORDNET_30_PATH = LLConfig.WORDNET_30_PATH
@@ -62,7 +63,7 @@ WORDNET_30_GLOSSTAG_PATH = LLConfig.WORDNET_30_GLOSSTAG_PATH
 WORDNET_30_GLOSS_DB_PATH = LLConfig.WORDNET_30_GLOSS_DB_PATH
 DB_INIT_SCRIPT = LLConfig.DB_INIT_SCRIPT
 
-#-----------------------------------------------------------------------
+########################################################################
 
 def get_synset_by_id(wng_db_loc, synsetid, report_file=None):
     ''' Search synset in WordNet Gloss Corpus by synset ID 

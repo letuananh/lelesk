@@ -46,6 +46,7 @@ from collections import defaultdict as dd
 from puchikarui import Schema, Execution#, DataSource, Table
 
 from ..config import LLConfig 
+from ..models import SenseInfo
 from ..glosswordnet.models import SynsetCollection, Synset, GlossRaw, SenseKey, Term, Gloss, GlossGroup, SenseTag, GlossItem
 
 #-----------------------------------------------------------------------
