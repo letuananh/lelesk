@@ -40,7 +40,7 @@ __maintainer__ = "Le Tuan Anh"
 __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
 
-from wordnetsql.wordnetsql import WordNetSQL
+from .wordnetsql import WordNetSQL
 #------------------------------------------------------------------------------
 
 

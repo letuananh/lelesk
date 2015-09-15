@@ -41,9 +41,14 @@ __maintainer__ = "Le Tuan Anh"
 __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
 
-from lelesk.lelesk import LeLeskWSD, LeskCache
+from .main import LeLeskWSD, LeskCache
 
-from main import XMLCache, SenseGloss, SenseInfo, GlossInfo, WordNetSQL, GlossTokens, WSDCandidate, WSDResources, get_sense_candidates, lelesk_wsd
+from .config import LLConfig
 
-__all__ = ['LeLeskWSD', 'LeskCache', 'XMLCache', 'SenseGloss', 'SenseInfo', 'GlossInfo', 'WordNetSQL', 'GlossTokens', 'WSDCandidate', 'WSDResources', 'get_sense_candidates', 'lelesk_wsd']
+from .glosswordnet import XMLGWordNet, SQLiteGWordNet
+from .wordnetsql import WordNetSQL
+
+from .common import get_synset_by_id, get_synset_by_sk, get_synsets_by_term, dump_synsets, dump_synset
+
+__all__ = ['LLConfig', 'LeLeskWSD', 'LeskCache', 'XMLGWordNet', 'SQLiteGWordNet', 'WOrdNetSQL', 'get_synset_by_id', 'get_synset_by_sk', 'get_synsets_by_term', 'dump_synsets', 'dump_synset']
 

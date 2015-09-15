@@ -40,8 +40,10 @@ __status__ = "Prototype"
 #-----------------------------------------------------------------------
 
 from lxml import etree
+
 from chirptext.leutile import StringTool, Counter
-from glosswordnet.models import SynsetCollection, Synset, GlossRaw, SenseKey, Term, Gloss, GlossGroup, SenseTag, GlossItem
+
+from .models import SynsetCollection, Synset, GlossRaw, SenseKey, Term, Gloss, GlossGroup, SenseTag, GlossItem
 
 #-----------------------------------------------------------------------
 

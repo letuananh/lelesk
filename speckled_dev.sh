@@ -1,7 +1,7 @@
 #!/usr/bin/sh
 
-python3 lelesk/wsdtk.py -b 'data/specdev.txt' -o 'data/specdev_ll_report.txt' -r 'data/specdev_ll_debug.txt'
-python3 lelesk/wsdtk.py -b 'data/specdev.txt' -o 'data/specdev_mfs_report.txt' -m mfs -r 'data/specdev_mfs_debug.txt'
+python3 -m lelesk.wsdtk -b 'data/specdev.txt' -o 'data/specdev_ll_report.txt' -r 'data/specdev_ll_debug.txt'
+python3 -m lelesk.wsdtk -b 'data/specdev.txt' -o 'data/specdev_mfs_report.txt' -m mfs -r 'data/specdev_mfs_debug.txt'
 
 
 echo '-------------------------------------------------------'

@@ -38,17 +38,19 @@ __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
 
 import os.path
-import argparse
-from puchikarui import Schema, Execution#, DataSource, Table
-from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, jilog, TextReport
-from glosswordnet import XMLGWordNet, SQLiteGWordNet
 import itertools
-from wordnetsql import WordNetSQL as WSQL
+import argparse
 from collections import defaultdict as dd
 from collections import namedtuple
-from lelesk import LeLeskWSD
-from lelesk import LeskCache
-from config import LLConfig
+
+from puchikarui import Schema, Execution#, DataSource, Table
+from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, jilog, TextReport
+
+from .main import LeLeskWSD
+from .main import LeskCache
+from .config import LLConfig
+from .glosswordnet import XMLGWordNet, SQLiteGWordNet
+from .wordnetsql import WordNetSQL as WSQL
 
 #-----------------------------------------------------------------------
 # CONFIGURATION

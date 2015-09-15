@@ -39,9 +39,12 @@ __status__ = "Prototype"
 
 #-----------------------------------------------------------------------
 
-from glosswordnet.models import SynsetCollection, Synset, GlossRaw, SenseKey, Term, Gloss, GlossGroup, SenseTag, GlossItem
-from puchikarui import Schema, Execution#, DataSource, Table
 import itertools
+
+from puchikarui import Schema, Execution#, DataSource, Table
+
+from .models import SynsetCollection, Synset, GlossRaw, SenseKey, Term, Gloss, GlossGroup, SenseTag, GlossItem
+
 #-----------------------------------------------------------------------
 
 class GWordNetSchema(Schema):

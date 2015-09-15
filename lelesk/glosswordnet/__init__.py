@@ -48,9 +48,9 @@ __version__ = "0.1"
 __maintainer__ = "Le Tuan Anh"
 __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
-from glosswordnet.models import SynsetCollection, Synset, GlossRaw, SenseKey, Term, Gloss, GlossGroup, SenseTag, GlossItem
-from glosswordnet.xmldao import XMLGWordNet
-from glosswordnet.sqlitedao import SQLiteGWordNet
+from .models import SynsetCollection, Synset, GlossRaw, SenseKey, Term, Gloss, GlossGroup, SenseTag, GlossItem
+from .xmldao import XMLGWordNet
+from .sqlitedao import SQLiteGWordNet
 
 
 

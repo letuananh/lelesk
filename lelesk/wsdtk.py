@@ -60,17 +60,19 @@ __status__ = "Prototype"
 # import sys
 import os.path
 import argparse
-from puchikarui import Schema, Execution#, DataSource, Table
-from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, jilog, TextReport, Table
-from glosswordnet import XMLGWordNet, SQLiteGWordNet
 import itertools
-from wordnetsql import WordNetSQL as WSQL
 from collections import defaultdict as dd
 from collections import namedtuple
-from lelesk import LeLeskWSD
-from lelesk import LeskCache
-from config import LLConfig
-from common import dump_synsets, dump_synset, get_synset_by_id, get_synset_by_sk, get_synsets_by_term
+
+from puchikarui import Schema, Execution#, DataSource, Table
+from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, jilog, TextReport, Table
+
+from .main import LeLeskWSD, LeskCache
+from .config import LLConfig
+from .common import dump_synsets, dump_synset, get_synset_by_id, get_synset_by_sk, get_synsets_by_term
+from .glosswordnet import XMLGWordNet, SQLiteGWordNet
+from .wordnetsql import WordNetSQL as WSQL
+
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------

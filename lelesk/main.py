@@ -6,7 +6,6 @@ Le's LESK - Word Sense Disambiguation Package
 Latest version can be found at https://github.com/letuananh/lelesk
 
 Usage:
-
         [TODO] WIP
 
 @author: Le Tuan Anh <tuananh.ke@gmail.com>
@@ -47,15 +46,17 @@ import operator
 import itertools
 from collections import defaultdict as dd
 from collections import namedtuple
-from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, TextReport, jilog
-from glosswordnet import XMLGWordNet, SQLiteGWordNet
-from wordnetsql import WordNetSQL as WSQL
 
 import nltk
 from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
-from config import LLConfig
+from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, TextReport, jilog
 from puchikarui import Schema, Execution#, DataSource, Table
+
+from .config import LLConfig
+from .glosswordnet import XMLGWordNet, SQLiteGWordNet
+from .wordnetsql import WordNetSQL as WSQL
+
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------

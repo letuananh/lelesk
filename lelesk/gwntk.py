@@ -53,14 +53,16 @@ __status__ = "Prototype"
 # import sys
 import os.path
 import argparse
-from chirptext.leutile import StringTool, Counter, Timer, uniquify, header
-from glosswordnet import XMLGWordNet, SQLiteGWordNet
 import itertools
-from wordnetsql import WordNetSQL as WSQL
 from collections import defaultdict as dd
 from collections import namedtuple
-from config import LLConfig
-from common import dump_synsets, dump_synset, get_synset_by_id, get_synset_by_sk, get_synsets_by_term
+
+from chirptext.leutile import StringTool, Counter, Timer, uniquify, header
+
+from .config import LLConfig
+from .common import dump_synsets, dump_synset, get_synset_by_id, get_synset_by_sk, get_synsets_by_term
+from .glosswordnet import XMLGWordNet, SQLiteGWordNet
+from .wordnetsql import WordNetSQL as WSQL
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
