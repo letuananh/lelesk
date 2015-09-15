@@ -45,6 +45,7 @@ from collections import defaultdict as dd
 
 from puchikarui import Schema, Execution#, DataSource, Table
 
+from ..config import LLConfig 
 from ..glosswordnet.models import SynsetCollection, Synset, GlossRaw, SenseKey, Term, Gloss, GlossGroup, SenseTag, GlossItem
 
 #-----------------------------------------------------------------------
@@ -205,7 +206,7 @@ class WordNetSQL:
         return lemma_map
 
     def get_conn(self):
-        conn = sqlite3.connect(WORDNET_30_PATH)
+        conn = sqlite3.connect(LLConfig.WORDNET_30_PATH)
         return conn
 
     lemma_list_cache = dict()
