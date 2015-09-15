@@ -40,6 +40,7 @@ __status__ = "Prototype"
 #-----------------------------------------------------------------------
 
 import itertools
+import sqlite3
 from collections import defaultdict as dd
 
 from puchikarui import Schema, Execution#, DataSource, Table
