@@ -21,8 +21,8 @@ An attempt to improve extended LESK using glosstag WordNet
 ----------------------
 1. Install NLTK & download all data
 2. create folder: ~/wordnet
-3. Copy glosstag folder from WordNet STG to ~/wordnet/glosstag
-4. Copy sqlite-30.db to ~/wordnet/sqlite-30.db
+3. Copy folder `glosstag` from WordNet STG to `~/wordnet/glosstag`
+4. Copy file `sqlite-30.db` to `~/wordnet/sqlite-30.db`
 5. Create SQLite database for WordNet Gloss Corpus by using
 ```
 python3 gwntk.py -c
