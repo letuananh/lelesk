@@ -76,6 +76,10 @@ class WordNetNTUMC:
     def get_all_synsets(self):
         with Execution(self.schema) as exe:
             return exe.schema.ss.select()
+            
+    def get_synset_def(self, sid):
+        with Execution(self.schema) as exe:
+            return exe.schema.synset_def.select(where='synset=?', values=[sid])
     
 
 class WordNetSQL:
@@ -126,7 +130,7 @@ class WordNetSQL:
         result = None
         with Execution(self.schema) as exe:
             result = exe.schema.wss.select_single(where='synsetid=?', values=[sid]
-                , columns=['pos', 'synsetid', 'sensekey'])
+                , columns=['pos', 'synsetid', 'sensekey', 'definition', 'tagcount'])
         self.sid_cache[sid] = result
         return result
  
