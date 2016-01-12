@@ -43,10 +43,10 @@ import unittest
 import lelesk.glosswordnet
 from lelesk.glosswordnet import XMLGWordNet, SQLiteGWordNet
 
-class TestStringMethods(unittest.TestCase):
+class TestReadXMLGWordNet(unittest.TestCase):
 
     def test_upper(self):
-        xml_file = os.path.expanduser('~/wordnet/glosstag/merged/test.xml')
+        xml_file = os.path.expanduser('data/test.xml')
         xmlwn = XMLGWordNet()
         xmlwn.read(xml_file)
         for ss in xmlwn.synsets[:5]:
