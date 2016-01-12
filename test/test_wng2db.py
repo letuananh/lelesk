@@ -42,16 +42,36 @@ import os.path
 import unittest
 import lelesk.glosswordnet
 from lelesk.glosswordnet import XMLGWordNet, SQLiteGWordNet
+from lelesk.wordnetsql import WordNetNTUMC, WordNetSQL
 
-class TestReadXMLGWordNet(unittest.TestCase):
+WN_NTUMC_FILE     = os.path.abspath(os.path.expanduser('~/wordnet/wn-ntumc.db'))
+WNSQL_FILE        = os.path.abspath(os.path.expanduser('~/wordnet/sqlite-30.db'))
+TEST_GWN_XML_FILE = os.path.abspath(os.path.expanduser('./data/unittest/test.xml'))
+
+class TestXMLGWordNet(unittest.TestCase):
 
     def test_upper(self):
-        xml_file = os.path.expanduser('data/test.xml')
         xmlwn = XMLGWordNet()
-        xmlwn.read(xml_file)
+        xmlwn.read(TEST_GWN_XML_FILE)
         for ss in xmlwn.synsets[:5]:
             # print(ss)
             self.assertIsNotNone(ss)
+
+class TestNTUMCWordNet(unittest.TestCase):
+    
+    def test_get_all_synsets(self):
+        wn = WordNetNTUMC(WN_NTUMC_FILE)
+        ss = wn.get_all_synsets()
+        print("WordNet-NTUMC synset count: %s " % (len(ss),))
+        self.assertTrue(len(ss) > 0)
+        
+class TestWordNetSQL(unittest.TestCase):
+    
+    def test_get_all_synsets(self):
+        wn = WordNetSQL(WNSQL_FILE)
+        ss = wn.get_all_synsets()
+        print("WordNet 3.0 synset count: %s " % (len(ss),))
+        self.assertTrue(len(ss) > 0)
 
 if __name__ == '__main__':
     unittest.main()

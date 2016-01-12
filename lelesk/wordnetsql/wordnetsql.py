@@ -57,14 +57,36 @@ class WordNet3Schema(Schema):
         self.add_table('wordsXsensesXsynsets', 'wordid lemma casedwordid synsetid senseid sensenum lexid tagcount sensekey pos lexdomainid definition'.split(), alias='wss')
         self.add_table('sensesXsemlinksXsenses', 'linkid ssynsetid swordid ssenseid scasedwordid ssensenum slexid stagcount ssensekey spos slexdomainid sdefinition dsynsetid dwordid dsenseid dcasedwordid dsensenum dlexid dtagcount dsensekey dpos dlexdomainid ddefinition'.split(), alias='sss')
 
+class WordNetNTUMCSchema(Schema):
+    def __init__(self, data_source=None):
+        Schema.__init__(self, data_source)
+        self.add_table('synset', 'synset pos name src'.split(), alias='ss')
+        self.add_table('word', 'wordid lang lemma pron pos'.split(), alias='word')
+        self.add_table('synlink', 'synset1 synset2 link src'.split(), alias='synlink')
+        self.add_table('sense', 'synset wordid lang rank lexid freq src'.split(), alias='sense')
+        self.add_table('synset_def', 'synset lang def sid'.split(), alias='sdef')
+        self.add_table('synset_ex', 'synset lang def sid'.split(), alias='sex')
+
+class WordNetNTUMC:
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self.schema = WordNetNTUMCSchema(self.db_path)
+        # some cache here?
+        
+    def get_all_synsets(self):
+        with Execution(self.schema) as exe:
+            return exe.schema.ss.select()
+    
+
 class WordNetSQL:
     def __init__(self, db_path):
         self.db_path = db_path
+        self.schema = WordNet3Schema(self.db_path)
+        
+        # Caches
         self.sk_cache = dd(set)
         self.sid_cache = dd(set)
         self.hypehypo_cache = dd(set)
-
-        self.schema = WordNet3Schema(self.db_path)
         self.tagcount_cache = dd(lambda: 0)
     
     def get_all_synsets(self):
