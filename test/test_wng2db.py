@@ -40,15 +40,18 @@ __status__ = "Prototype"
 #-------------------------------------------------------------------
 import os.path
 import unittest
-import wng2db
+import lelesk.glosswordnet
+from lelesk.glosswordnet import XMLGWordNet, SQLiteGWordNet
 
 class TestStringMethods(unittest.TestCase):
 
     def test_upper(self):
-      	xml_file = os.path.expanduser('~/wordnet/glosstag/merged/test.xml')
-      	synsets = XMLGWordNet.read_xml_data(xml_file)
-      	print("Synset: %s" % synsets[0])
-      	assertEqual(synsets, 216)
+        xml_file = os.path.expanduser('~/wordnet/glosstag/merged/test.xml')
+        xmlwn = XMLGWordNet()
+        xmlwn.read(xml_file)
+        for ss in xmlwn.synsets[:5]:
+            # print(ss)
+            self.assertIsNotNone(ss)
 
 if __name__ == '__main__':
     unittest.main()
