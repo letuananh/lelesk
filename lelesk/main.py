@@ -54,8 +54,8 @@ from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, Text
 from puchikarui import Schema, Execution#, DataSource, Table
 
 from .config import LLConfig
-from .glosswordnet import XMLGWordNet, SQLiteGWordNet
-from .wordnetsql import WordNetSQL as WSQL
+from yawlib.glosswordnet import XMLGWordNet, SQLiteGWordNet
+from yawlib.wordnetsql import WordNetSQL as WSQL
 
 #-----------------------------------------------------------------------
 # CONFIGURATION

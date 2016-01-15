@@ -69,9 +69,9 @@ from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, jilo
 
 from .main import LeLeskWSD, LeskCache
 from .config import LLConfig
-from .common import dump_synsets, dump_synset, get_synset_by_id, get_synset_by_sk, get_synsets_by_term
-from .glosswordnet import XMLGWordNet, SQLiteGWordNet
-from .wordnetsql import WordNetSQL as WSQL
+from yawlib.helpers import dump_synsets, dump_synset, get_synset_by_id, get_synset_by_sk, get_synsets_by_term
+from yawlib.glosswordnet import XMLGWordNet, SQLiteGWordNet
+from yawlib.wordnetsql import WordNetSQL as WSQL
 
 #-----------------------------------------------------------------------
 # CONFIGURATION

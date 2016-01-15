@@ -44,11 +44,12 @@ __status__ = "Prototype"
 from .main import LeLeskWSD, LeskCache
 
 from .config import LLConfig
+from yawlib.config import YLConfig
 
-from .glosswordnet import XMLGWordNet, SQLiteGWordNet
-from .wordnetsql import WordNetSQL
+from yawlib.glosswordnet import XMLGWordNet, SQLiteGWordNet
+from yawlib.wordnetsql import WordNetSQL
 
-from .common import get_synset_by_id, get_synset_by_sk, get_synsets_by_term, dump_synsets, dump_synset
+from yawlib.helpers import get_synset_by_id, get_synset_by_sk, get_synsets_by_term, dump_synsets, dump_synset
 
-__all__ = ['LLConfig', 'LeLeskWSD', 'LeskCache', 'XMLGWordNet', 'SQLiteGWordNet', 'WOrdNetSQL', 'get_synset_by_id', 'get_synset_by_sk', 'get_synsets_by_term', 'dump_synsets', 'dump_synset']
+__all__ = ['LLConfig', 'YLConfig', 'LeLeskWSD', 'LeskCache', 'XMLGWordNet', 'SQLiteGWordNet', 'WOrdNetSQL', 'get_synset_by_id', 'get_synset_by_sk', 'get_synsets_by_term', 'dump_synsets', 'dump_synset']
 
