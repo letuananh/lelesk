@@ -51,35 +51,20 @@ __status__ = "Prototype"
 # import sys
 import os.path
 import argparse
-import itertools
-from collections import defaultdict as dd
 from collections import namedtuple
 
-from puchikarui import Schema, Execution#, DataSource, Table
-from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, jilog, TextReport, Table
+from chirptext.leutile import jilog, Timer, Counter, Table
+from yawlib import YLConfig
 
 from .main import LeLeskWSD, LeskCache
-from .config import LLConfig
-from yawlib.helpers import dump_synsets, dump_synset, get_synset_by_id, get_synset_by_sk, get_synsets_by_term
-from yawlib.glosswordnet import XMLGWordNet, SQLiteGWordNet
-from yawlib.wordnetsql import WordNetSQL as WSQL
 
 #-----------------------------------------------------------------------
-# CONFIGURATION
-#-----------------------------------------------------------------------
-# >>> WARNING: Do NOT change these values here. Change config.py instead!
-#
-WORDNET_30_PATH = LLConfig.WORDNET_30_PATH
-WORDNET_30_GLOSSTAG_PATH = LLConfig.WORDNET_30_GLOSSTAG_PATH
-WORDNET_30_GLOSS_DB_PATH = LLConfig.WORDNET_30_GLOSS_DB_PATH
-DB_INIT_SCRIPT = LLConfig.DB_INIT_SCRIPT
-NTUMC_PRONOUNS= LLConfig.NTUMC_PRONOUNS
-#-----------------------------------------------------------------------
+
 
 def generate_tokens(wsd):
     ''' Pre-generate LESK tokens for all synsets for faster WSD
     '''
-    lesk_cache  = LeskCache(wsd, report_file=wsd.report_file)
+    lesk_cache = LeskCache(wsd)
     lesk_cache.info()
     lesk_cache.setup()
     lesk_cache.generate()
@@ -168,10 +153,10 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
                 else:
                     # jilog("Activating Lelesk with NTLK tokenizer")
                     scores = wsd_obj.lelesk_wsd(word, sentence_text, correct_sense, lemmatizing=lemmatizing, pos=pos)
-            suggested_senses = [ score.candidate.synset.get_synsetid() for score in scores[:3] ]
+            suggested_senses = [score.candidate.synset.sid for score in scores[:3]]
             # c.count("TotalSense")
 
-            if correct_sense in NTUMC_PRONOUNS:
+            if correct_sense in YLConfig.NTUMC_PRONOUNS:
                 c.count("IGNORED")
                 continue
             else:
@@ -297,10 +282,9 @@ def main():
     # Parse input arguments
     args = parser.parse_args()
 
-    wng_db_loc = args.glosswn if args.glosswn else WORDNET_30_GLOSS_DB_PATH
-    wn30_loc = args.wnsql if args.wnsql else WORDNET_30_PATH
-    report = TextReport(args.report) if args.report else TextReport()
-    wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet, report_file=report)
+    wng_db_loc = args.glosswn if args.glosswn else YLConfig.WORDNET_30_GLOSS_DB_PATH
+    wn30_loc = args.wnsql if args.wnsql else YLConfig.WORDNET_30_PATH
+    wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet)
     wsd_method = args.method if args.method else 'lelesk'
 
     # Now do something ...
