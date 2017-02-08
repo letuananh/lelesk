@@ -2,11 +2,8 @@
 # -*- coding: utf-8 -*-
 
 '''
-Le's LESK - Word Sense Disambiguation Package
+A tool for converting Gloss WordNet into SQLite
 Latest version can be found at https://github.com/letuananh/lelesk
-
-Usage:
-    [TODO] WIP
 
 @author: Le Tuan Anh <tuananh.ke@gmail.com>
 '''
@@ -40,7 +37,40 @@ __maintainer__ = "Le Tuan Anh"
 __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
 
-from .main import LeLeskWSD, LeskCache
-from .config import LLConfig
+# -------------------------------------------------------------------
 
-__all__ = ['LLConfig', 'LeLeskWSD', 'LeskCache']
+
+import unittest
+from chirptext.leutile import TextReport
+from lelesk import LeLeskWSD
+
+
+class TestMain(unittest.TestCase):
+
+    def dump_scores(self, scores):
+        for candidate, score, freq in scores:
+            print("Candidate: {c} | score: {s} | freq: {f}".format(c=candidate.synset, s=score, f=freq))
+
+    def test_basic(self):
+        print("Test LeLesk WSD")
+        l = LeLeskWSD(report_file=TextReport('~/tmp/wsd.tmp.txt'))
+        self.assertIsNotNone(l)
+        scores = l.lelesk_wsd('fish', 'There are so many fish in the river.')
+        self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
+        self.assertEqual(scores[0].score, 2)
+        self.assertEqual(scores[0].freq, 12)
+        # self.dump_scores(scores)
+
+    def test_mfs(self):
+        print("Test MFS WSD")
+        l = LeLeskWSD(report_file=TextReport('~/tmp/wsd.tmp.txt'))
+        self.assertIsNotNone(l)
+        scores = l.mfs_wsd('fish', 'There are so many fish in the river.')
+        self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
+        self.assertEqual(scores[0].score, 12)
+        self.assertEqual(scores[0].freq, 12)
+        # self.dump_scores(scores)
+
+
+if __name__ == '__main__':
+    unittest.main()

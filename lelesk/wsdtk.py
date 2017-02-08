@@ -6,17 +6,8 @@ Word Sense Disambiguation Toolkit
 Latest version can be found at https://github.com/letuananh/lelesk
 
 Usage:
-    # Search sysets by term (word form) = `love' and POS is verb
-    python3 wsdtk.py -t 'love' -p 'v'
-
-    # Search synsets by synset-id
-    python3 wsdtk.py -s 'v01775535'
-
-    # Search synsets by sensekey
-    python3 wsdtk.py -k 'love%2:37:01::'
-
     # Build lelesk set
-    python3 wsdtk.py -g ~/wordnet/gwn.db -w ~/wordnet/sqlite-30.db -l v01775535 
+    python3 wsdtk.py -g ~/wordnet/gwn.db -w ~/wordnet/sqlite-30.db -l v01775535
 
     # Test retrieving sense candidates for a word
     python3 wsdtk.py --candidates "love" --pos "v"
@@ -30,27 +21,27 @@ Usage:
 
 # Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
 #
-#Permission is hereby granted, free of charge, to any person obtaining a copy
-#of this software and associated documentation files (the "Software"), to deal
-#in the Software without restriction, including without limitation the rights
-#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#copies of the Software, and to permit persons to whom the Software is
-#furnished to do so, subject to the following conditions:
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 #
-#The above copyright notice and this permission notice shall be included in
-#all copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-#THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
 __author__ = "Le Tuan Anh <tuananh.ke@gmail.com>"
 __copyright__ = "Copyright 2014, lelesk"
-__credits__ = [ "Le Tuan Anh" ]
+__credits__ = []
 __license__ = "MIT"
 __version__ = "0.1"
 __maintainer__ = "Le Tuan Anh"
@@ -117,7 +108,7 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
     t.start("Reading file %s" % infile_loc)
     lines = open(os.path.expanduser(infile_loc)).readlines()
     t.end("File has been loaded")
-    
+
     c=Counter('Match InTop3 Wrong NoSense TotalSense'.split())
     outputlines = []
     # Counters for different type of words
@@ -273,7 +264,7 @@ def dump_counter(counter, file_obj, header):
 #-----------------------------------------------------------------------
 
 def main():
-    '''Main entry of wng2db
+    '''Main entry of WSD toolkit
 
     Available commands:
         test: Run bank test
@@ -281,20 +272,10 @@ def main():
         batch -i PATH_TO_FILE: Perform WSD on a batch file
         batch -i PATH_TO_SEMCOR_TEST_FILE: Perform WSD on Semcor (e.g. semcor_wn30.txt)
     '''
-    # It's easier to create a user-friendly console application by using argparse
-    # See reference at the top of this script
-    parser = argparse.ArgumentParser(description="Convert Gloss WordNet from XML into SQLite DB.")
-    
+    parser = argparse.ArgumentParser(description="LeLesk - Word-Sense Disambiguation Toolkit")
     # Positional argument(s)
-    # parser.add_argument('task', help='Task to perform (create/import/synset)')
     parser.add_argument('-w', '--wnsql', help='Location to WordNet 3.0 SQLite database')
     parser.add_argument('-g', '--glosswn', help='Location to Gloss WordNet SQLite database')
-
-    parser.add_argument('-s', '--synset', help='Retrieve synset information by synsetid')
-    parser.add_argument('-k', '--sensekey', help='Retrieve synset information by sensekey')
-    parser.add_argument('-t', '--term', help='Retrieve synset information by term (word form)')
-    parser.add_argument('-p', '--pos', help='Specify part-of-speech')
-
     parser.add_argument('-l', '--lelesk', help='Get hyponyms and hypernyms given a synsetID')
     parser.add_argument('-c', '--candidates', help='Retrieve Word Sense Disambiguation candidates for a word')
     parser.add_argument('-W', '--wsd', help='Perform WSD on a word [WSD] with a context X')
@@ -321,17 +302,9 @@ def main():
     report = TextReport(args.report) if args.report else TextReport()
     wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet, report_file=report)
     wsd_method = args.method if args.method else 'lelesk'
-    
 
     # Now do something ...
-    if args.synset:
-        get_synset_by_id(wng_db_loc, args.synset, report)
-    elif args.sensekey:
-        get_synset_by_sk(wng_db_loc, args.sensekey, report)
-    elif args.term:
-        get_synsets_by_term(wng_db_loc, args.term, args.pos, report_file=report)
-    # Retrieve lelesk tokens for a synset (given a synsetid)
-    elif args.lelesk:
+    if args.lelesk:
         wsd.build_lelesk_set(args.lelesk)
     # Retrieve all synset candidates and their tokens for a word
     elif args.candidates:
@@ -352,7 +325,8 @@ def main():
         generate_tokens(wsd)
     else:
         parser.print_help()
-    pass # end main()
+    pass  # end main()
+
 
 if __name__ == "__main__":
     main()

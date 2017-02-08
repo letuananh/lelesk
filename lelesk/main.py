@@ -6,34 +6,34 @@ Le's LESK - Word Sense Disambiguation Package
 Latest version can be found at https://github.com/letuananh/lelesk
 
 Usage:
-        [TODO] WIP
+    [TODO] WIP
 
 @author: Le Tuan Anh <tuananh.ke@gmail.com>
 '''
 
 # Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
 #
-#Permission is hereby granted, free of charge, to any person obtaining a copy
-#of this software and associated documentation files (the "Software"), to deal
-#in the Software without restriction, including without limitation the rights
-#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#copies of the Software, and to permit persons to whom the Software is
-#furnished to do so, subject to the following conditions:
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 #
-#The above copyright notice and this permission notice shall be included in
-#all copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-#THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
 __author__ = "Le Tuan Anh <tuananh.ke@gmail.com>"
 __copyright__ = "Copyright 2014, lelesk"
-__credits__ = [ "Le Tuan Anh" ]
+__credits__ = []
 __license__ = "MIT"
 __version__ = "0.1"
 __maintainer__ = "Le Tuan Anh"
@@ -41,7 +41,6 @@ __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
 
 import os.path
-import argparse
 import operator
 import itertools
 from collections import defaultdict as dd
@@ -50,43 +49,40 @@ from collections import namedtuple
 import nltk
 from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
-from chirptext.leutile import StringTool, Counter, Timer, uniquify, header, TextReport, jilog
-from puchikarui import Schema, Execution#, DataSource, Table
+# from chirptext.leutile import StringTool
+from chirptext.leutile import Counter, Timer, uniquify, header, TextReport, jilog
+from puchikarui import Schema, Execution  # DataSource, Table
 
 from .config import LLConfig
-from yawlib.glosswordnet import XMLGWordNet, SQLiteGWordNet
+from yawlib.config import YLConfig
+from yawlib.glosswordnet import SQLiteGWordNet
 from yawlib.wordnetsql import WordNetSQL as WSQL
 
 #-----------------------------------------------------------------------
 # CONFIGURATION
 #-----------------------------------------------------------------------
 
+
 ScoreTup = namedtuple('Score', 'candidate score freq'.split())
+
 
 class LeLeskWSD:
     ''' Le's LESK algorithm for Word-Sense Disambiguation
     '''
-    def __init__(self, wng_db_loc, wn30_loc, verbose=True, report_file=None):
-        if report_file == None:
+    def __init__(self, wng_db_loc=None, wn30_loc=None, verbose=False, report_file=None):
+        if report_file is None:
             self.report_file = TextReport()
         else:
             self.report_file = report_file
         if verbose:
             print("Initializing LeLeskWSD object ...")
-        self.wng_db_loc = wng_db_loc
-        self.wn30_loc = wn30_loc
-        self.gwn = SQLiteGWordNet(wng_db_loc)
-        self.wn = WSQL(wn30_loc)
+        self.wng_db_loc = wng_db_loc if wng_db_loc else YLConfig.WORDNET_30_GLOSS_DB_PATH
+        self.wn30_loc = wn30_loc if wn30_loc else YLConfig.WORDNET_30_PATH
+        self.gwn = SQLiteGWordNet(self.wng_db_loc)
+        self.wn = WSQL(self.wn30_loc)
         self.tokenized_sentence_cache = {}
         self.lemmatized_word_cache = {}
-        self.lelesk_tokens_sid_cache = {} # cache tokens of a given sid
-
-        # Cache data for faster access
-        #t = Timer()
-        #t.start("Importing data into memory for faster access")
-        #self.wn.cache_tagcounts()
-        #self.wn.cache_all_hypehypo()
-        #t.end("Data imported ..")
+        self.lelesk_tokens_sid_cache = {}  # cache tokens of a given sid
 
         self.lemmatizer = WordNetLemmatizer()
         self.candidates_cache = {}
@@ -115,7 +111,7 @@ class LeLeskWSD:
         cantemp = namedtuple('WSDCandidate', 'id synset tokens'.split())
         for ss in sses:
             canid = next(x)
-            report_file.header('>>> CANDIDATE #%s <<<' % canid,'h2')
+            report_file.header('>>> CANDIDATE #%s <<<' % canid, 'h2')
             tokens = self.build_lelesk_set(ss.sid, report_file=report_file)
             candidates.append(cantemp(canid, ss, tokens))
             report_file.print('')
@@ -124,7 +120,7 @@ class LeLeskWSD:
             report_file.header("Final candidates for the word ``%s'' and their tokens" % a_word, 'h2')
             for candidate in candidates:
                 report_file.print("\tCandidate #%s: %s (%s) => set(%s)" % (
-                candidate.id, candidate.synset.get_synsetid(), candidate.synset.get_terms_text(), candidate.tokens))
+                candidate.id, candidate.synset.sid, candidate.synset.get_terms_text(), candidate.tokens))
         self.word_cache[cache_key] = candidates
         return candidates
 
@@ -144,15 +140,13 @@ class LeLeskWSD:
             if len(sses) > 0:
                 ss = sses[0]
         else:
-            sses = self.gwn.get_synset_by_sk(wn30_ss.sensekey)
-            if len(sses) > 0:
-                ss = sses[0]
+            ss = self.gwn.get_synset_by_sk(wn30_ss.sensekey)
 
         if not ss:
             report_file.print("Synset ID [%s] not found" % (a_sid))
             return False
         else:
-            report_file.print("Synset: %s (terms=%s | keys=%s)" % (ss.get_synsetid(), ss.terms, ss.keys), level=1)
+            report_file.print("Synset: %s (terms=%s | keys=%s)" % (ss.sid, ss.terms, ss.keys), level=1)
             for gloss in [ g for g in ss.raw_glosses if g.cat == 'orig' ]:
                 report_file.print("%s" % gloss, level=2) 
             report_file.print("Tokens => %s" % (ss.get_gramwords()), level=2) # Get gloss items
@@ -165,7 +159,7 @@ class LeLeskWSD:
         report_file.header("Retrieving tagged synsets", 'h3')
         sscol = self.gwn.get_synset_by_sks(ss.get_tags())
         for s in sscol:
-            report_file.print("Synset: %s (terms=%s | keys=%s)" % (s.get_synsetid(), s.terms, s.keys), level=2)
+            report_file.print("Synset: %s (terms=%s | keys=%s)" % (s.sid, s.terms, s.keys), level=2)
             lelesk_tokens.extend(s.get_terms_text())
             lelesk_tokens.extend(s.get_gramwords()) 
 
@@ -177,13 +171,13 @@ class LeLeskWSD:
 
             report_file.print("")
 
-        report_file.header("Retrieving hypernyms & hyponyms of %s " % ss.get_synsetid(), 'h3')
-        wn30_hh_sids = self.wn.get_hypehypo(ss.to_wn30_synsetid()) # Get hypehypo information from WordNet 30 DB
+        report_file.header("Retrieving hypernyms & hyponyms of %s " % ss.sid, 'h3')
+        wn30_hh_sids = self.wn.get_hypehypo(ss.sid) # Get hypehypo information from WordNet 30 DB
         gwn_sids = [ str(sid.dpos) + str(sid.dsynsetid)[1:] for sid in wn30_hh_sids ] # Convert them to GWN sids 
-        sscol = self.gwn.get_synset_by_ids(gwn_sids) # Get synsets from Gloss WordNet
+        sscol = self.gwn.get_synsets_by_ids(gwn_sids) # Get synsets from Gloss WordNet
         # dump_synsets(ss)
         for s in sscol:
-            report_file.print("Synset: %s (terms=%s | keys=%s)" % (s.get_synsetid(), s.terms, s.keys), level=2)
+            report_file.print("Synset: %s (terms=%s | keys=%s)" % (s.sid, s.terms, s.keys), level=2)
             lelesk_tokens.extend(s.get_terms_text())
             lelesk_tokens.extend(s.get_gramwords()) 
 
@@ -232,7 +226,7 @@ class LeLeskWSD:
         ''' Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0
         '''
         report_file.header("LELESK:: Disambiguating word ``%s'' in context ``%s''" % (word, sentence_text), level='h0')
-        
+
         #1. Retrieve candidates for the given word
         if (word, pos) not in self.candidates_cache:
             self.candidates_cache[(word, pos)] = self.build_lelesk_for_word(word, pos=pos, report_file=report_file)
@@ -241,9 +235,9 @@ class LeLeskWSD:
         #2. Calculate overlap between the context and each given word
         if not context:
             context = uniquify(self.prepare_data(sentence_text))
-        
+
         scores = []
-        
+
         context_set = set(context)
         for candidate in candidates:
             candidate_set = set(candidate.tokens)
@@ -252,7 +246,7 @@ class LeLeskWSD:
                 ScoreTup(
                     candidate
                     , score
-                    , self.wn.get_tagcount(candidate.synset.to_wn30_synsetid())
+                    , self.wn.get_tagcount(candidate.synset.sid.to_wnsql())
                 )
             )
             # scores.append([candidate, score, candidate.sense.tagcount])
@@ -269,7 +263,7 @@ class LeLeskWSD:
                 report_file.print('Expected sense  : %s' % (expected_sense,))
             if len(scores) > 0:
                 report_file.print('Suggested sense : %s (score=%s|freq=%s) - %s' % (
-                    scores[0].candidate.synset.get_synsetid()
+                    scores[0].candidate.synset.sid
                     ,scores[0].score
                     ,scores[0].freq
                     ,scores[0].candidate.synset.get_orig_gloss()))
@@ -279,7 +273,7 @@ class LeLeskWSD:
             for score in scores[1:]:
                 report_file.print('Ranked #%s : %s (score=%s|freq=%s) - %s' % (
                     next(candidate_count)
-                    ,score.candidate.synset.get_synsetid()
+                    ,score.candidate.synset.sid
                     ,score.score
                     ,score.freq
                     ,score.candidate.synset.get_orig_gloss()))
@@ -300,7 +294,7 @@ class LeLeskWSD:
         scores = []
         
         for candidate in candidates:
-            freq = self.wn.get_tagcount(candidate.synset.to_wn30_synsetid())
+            freq = self.wn.get_tagcount(candidate.synset.sid.to_wnsql())
             score = freq
             scores.append(
                 ScoreTup(
@@ -321,7 +315,7 @@ class LeLeskWSD:
                 report_file.print('Expected sense  : %s' % (expected_sense,))
             if len(scores) > 0:
                 report_file.print('Suggested sense : %s (score=%s|freq=%s) - %s' % (
-                    scores[0].candidate.synset.get_synsetid()
+                    scores[0].candidate.synset.sid
                     ,scores[0].score
                     ,scores[0].freq
                     ,scores[0].candidate.synset.get_orig_gloss()))
@@ -331,11 +325,12 @@ class LeLeskWSD:
             for score in scores[1:]:
                 report_file.print('Ranked #%s : %s (score=%s|freq=%s) - %s' % (
                     next(candidate_count)
-                    ,score.candidate.synset.get_synsetid()
+                    ,score.candidate.synset.sid
                     ,score.score
                     ,score.freq
                     ,score.candidate.synset.get_orig_gloss()))
         return scores        
+
 
 class LeskCacheSchema(Schema):
     def __init__(self, data_source=None):
@@ -348,6 +343,7 @@ class LeskCacheSchema(Schema):
         self.add_table('sensekey', 'synsetid sensekey'.split())
         # term: synsetid term
         self.add_table('term', 'synsetid term'.split())
+
 
 class LeskCache:
     def __init__(self, wsd, db_file=None, debug_dir=None, report_file=None):
@@ -363,11 +359,11 @@ class LeskCache:
             self.report_file = TextReport()
         else:
             self.report_file = report_file
-        self.wsd         = wsd
-        self.db_file     = db_file if db_file else LLConfig.LELESK_CACHE_DB_LOC
-        self.db          = LeskCacheSchema(self.db_file)
+        self.wsd = wsd
+        self.db_file = db_file if db_file else LLConfig.LELESK_CACHE_DB_LOC
+        self.db = LeskCacheSchema(self.db_file)
         self.script_file = LLConfig.LELESK_CACHE_DB_INIT_SCRIPT
-        self.debug_dir   = debug_dir if debug_dir else LLConfig.LELESK_CACHE_DEBUG_DIR
+        self.debug_dir = debug_dir if debug_dir else LLConfig.LELESK_CACHE_DEBUG_DIR
 
     def info(self):
         header("Pre-generate LESK tokens for all synsets for faster WSD")
@@ -387,7 +383,7 @@ class LeskCache:
         # Comparing synsets
         wn_synsets = wn.get_all_synsets()
         synsetids = set()
-        for row in wn_synsets: # 'synsetid', 'lemma', 'sensekey', 'tagcount'
+        for row in wn_synsets:  # 'synsetid', 'lemma', 'sensekey', 'tagcount'
             synsetids.add(row.synsetid)
         print("Synsets in WordNet SQLite: %s" % len(synsetids))
 
@@ -456,14 +452,13 @@ class LeskCache:
                         for cand in candidates:
                             if tag.split('%')[0] == cand.split('%')[0]:
                                 derivative = cand
-                                # print("Found but changed: (sid=%s) %s => %s" % (wn_skmap[derivative], tag, derivative))
                                 break
                         if derivative:
                             c.count("WN30 Found derivative")
                         else:
                             # not found at all
                             c.count("WN30 Not Found At all")
-                            print("sk [%s] does not exist in WN30 at all ..." % tag)    
+                            print("sk [%s] does not exist in WN30 at all ..." % tag)
                 else:
                     c.count("WN30 & GWN Not Found")
                     print("sk [%s] does not exist in WN30" % tag)
@@ -481,7 +476,7 @@ class LeskCache:
                     print(meta)
             except Exception as e:
                 print("Error while setting up database ... e = %s" % e)
-        pass # end setup()
+        pass  # end setup()
 
     def generate(self, report_file=None):
         if report_file is None:
