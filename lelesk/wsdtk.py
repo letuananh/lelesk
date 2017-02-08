@@ -284,7 +284,7 @@ def main():
 
     wng_db_loc = args.glosswn if args.glosswn else YLConfig.WORDNET_30_GLOSS_DB_PATH
     wn30_loc = args.wnsql if args.wnsql else YLConfig.WORDNET_30_PATH
-    wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet)
+    wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet, dbcache=LeskCache().setup())
     wsd_method = args.method if args.method else 'lelesk'
 
     # Now do something ...

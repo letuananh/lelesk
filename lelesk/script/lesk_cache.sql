@@ -1,7 +1,7 @@
-DROP TABLE IF EXISTS tokens;
-DROP TABLE IF EXISTS synset;
-DROP TABLE IF EXISTS sensekey;
-DROP TABLE IF EXISTS term;
+-- DROP TABLE IF EXISTS tokens;
+-- DROP TABLE IF EXISTS synset;
+-- DROP TABLE IF EXISTS sensekey;
+-- DROP TABLE IF EXISTS term;
 
 -- synset: synsetid offset pos synsetid_wn30 freq
 CREATE TABLE IF NOT EXISTS synset  (

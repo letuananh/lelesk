@@ -39,9 +39,9 @@ __status__ = "Prototype"
 
 # -------------------------------------------------------------------
 
-
+import os
 import unittest
-from lelesk import LeLeskWSD
+from lelesk import LeLeskWSD, LeskCache
 
 
 class TestMain(unittest.TestCase):
@@ -63,6 +63,25 @@ class TestMain(unittest.TestCase):
         self.assertIn('aquatic', leset)
         self.assertIn('shark', leset)
         # TODO: Test this method properly
+
+    def test_caching(self):
+        wsd = LeLeskWSD()
+        # make sure that we have a token list
+        fish = wsd.smart_synset_search('fish', 'n')
+        leset = wsd.build_lelesk_set(fish[0].sid)
+        self.assertEqual(len(leset), 192)
+
+        # try to cache our token list now ...
+        DB_PATH = os.path.abspath('./data/test_leskcache.db')
+        print('Test DB loc: {}'.format(DB_PATH))
+        l = LeskCache(db_file=DB_PATH)
+        # l = LeskCache()
+        l.setup()
+        l.cache(str(fish[0].sid), leset)
+        l.cache(fish[0].sid, leset)  # cache this twice
+        ls = l.select(fish[0].sid)
+        self.assertEqual(len(ls), 192)
+
 
 if __name__ == '__main__':
     unittest.main()

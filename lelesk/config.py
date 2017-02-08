@@ -41,6 +41,7 @@ import os
 
 
 class LLConfig:
-    LELESK_CACHE_DB_INIT_SCRIPT = os.path.expanduser('./script/lesk_cache.sql')
+    LELESK_DIR = os.path.dirname(os.path.abspath(__file__))
+    LELESK_CACHE_DB_INIT_SCRIPT = os.path.join(LELESK_DIR, 'script', 'lesk_cache.sql')
     LELESK_CACHE_DB_LOC = os.path.expanduser('./data/lesk_cache.db')
     LELESK_CACHE_DEBUG_DIR = os.path.expanduser('./debug')

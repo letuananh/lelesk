@@ -53,7 +53,7 @@ from chirptext.leutile import Counter, Timer, uniquify, header, TextReport, jilo
 from puchikarui import Schema, Execution  # DataSource, Table
 
 from .config import LLConfig
-from yawlib.config import YLConfig
+from yawlib import SynsetID, YLConfig
 from yawlib.glosswordnet import SQLiteGWordNet
 from yawlib.wordnetsql import WordNetSQL as WSQL
 
@@ -68,7 +68,7 @@ ScoreTup = namedtuple('Score', 'candidate score freq'.split())
 class LeLeskWSD:
     ''' Le's LESK algorithm for Word-Sense Disambiguation
     '''
-    def __init__(self, wng_db_loc=None, wn30_loc=None, verbose=False):
+    def __init__(self, wng_db_loc=None, wn30_loc=None, verbose=False, dbcache=None):
         if verbose:
             print("Initializing LeLeskWSD object ...")
         self.wng_db_loc = wng_db_loc if wng_db_loc else YLConfig.WORDNET_30_GLOSS_DB_PATH
@@ -79,6 +79,7 @@ class LeLeskWSD:
         self.lemmatized_word_cache = {}
         self.lelesk_tokens_sid_cache = {}  # cache tokens of a given sid
 
+        self.dbcache = dbcache
         self.lemmatizer = WordNetLemmatizer()
         self.candidates_cache = {}
         self.verbose = verbose
@@ -110,6 +111,13 @@ class LeLeskWSD:
         return candidates
 
     def build_lelesk_set(self, a_sid):
+        sid_obj = SynsetID.from_string(a_sid)
+        if self.dbcache:
+            # try to fetch from DB then ...
+            lelesk_tokens = self.dbcache.select(sid_obj)
+            if lelesk_tokens:
+                return lelesk_tokens
+        # otherwise build the token list ...
         if a_sid in self.lelesk_tokens_sid_cache:
             return self.lelesk_tokens_sid_cache[a_sid]
         # Try to get by WN30 synsetID first, then try by GWN synsetID
@@ -153,8 +161,10 @@ class LeLeskWSD:
         uniquified_lelesk_tokens = [w for w in uniquify(lelesk_tokens) if w not in stopwords.words('english')]
 
         self.lelesk_tokens_sid_cache[a_sid] = uniquified_lelesk_tokens
+        # try to cache this token list ...
+        if self.dbcache:
+            self.dbcache.cache(sid_obj, uniquified_lelesk_tokens)
         return uniquified_lelesk_tokens
-        pass
 
     def tokenize(self, sentence_text):
         if sentence_text not in self.tokenized_sentence_cache:
@@ -232,7 +242,7 @@ class LeskCacheSchema(Schema):
 
 
 class LeskCache:
-    def __init__(self, wsd, db_file=None, debug_dir=None):
+    def __init__(self, wsd=None, db_file=None, debug_dir=None):
         ''' Create an instance of LeskCache
 
         Arguments:
@@ -255,6 +265,16 @@ class LeskCache:
         print("Debug info will be stored in: %s" % self.debug_dir)
         print("--")
         print("")
+
+    def cache(self, synsetid, tokens):
+        # delete tokens first
+        self.db.ds().execute('DELETE FROM tokens WHERE synsetid=?', [str(synsetid)])
+        for token in tokens:
+            self.db.tokens.insert((str(synsetid), token))
+        self.db.commit()
+
+    def select(self, synsetid):
+        return self.db.tokens.select('synsetid=?', (str(synsetid),))
 
     def validate(self):
         gwn = self.wsd.gwn
@@ -353,12 +373,12 @@ class LeskCache:
         with Execution(self.db) as exe:
             print('Creating database file ...')
             exe.ds.executefile(self.script_file)
-            try:
-                for token in exe.schema.tokens.select():
-                    print(meta)
-            except Exception as e:
-                print("Error while setting up database ... e = %s" % e)
-        pass  # end setup()
+            # try:
+            #     for token in exe.schema.tokens.select():
+            #         print(meta)
+            # except Exception as e:
+            #     print("Error while setting up database ... e = %s" % e)
+        return self  # end setup()
 
     def generate(self):
         synsets = self.wsd.gwn.all_synsets(deep_select=False)
