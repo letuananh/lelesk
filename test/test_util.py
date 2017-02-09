@@ -43,6 +43,12 @@ import os
 import unittest
 from lelesk import LeLeskWSD, LeskCache
 
+################################################################
+# Configuration
+################################################################
+TEST_DIR = os.path.dirname(__file__)
+TEST_CACHE = os.path.join(TEST_DIR, 'data', 'test_cache.db')
+
 
 class TestMain(unittest.TestCase):
 
@@ -59,9 +65,14 @@ class TestMain(unittest.TestCase):
         wsd = LeLeskWSD()
         fish = wsd.smart_synset_search('fish', 'n')
         leset = wsd.build_lelesk_set(fish[0].sid)
+        self.assertEqual(len(leset), 192)
         self.assertIn('fish', leset)
         self.assertIn('aquatic', leset)
         self.assertIn('shark', leset)
+        # now with cache
+        wsd = LeLeskWSD(dbcache=LeskCache())
+        lesetc = wsd.build_lelesk_set(fish[0].sid)
+        self.assertEqual(set(leset), set(lesetc))
         # TODO: Test this method properly
 
     def test_caching(self):

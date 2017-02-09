@@ -39,9 +39,13 @@ __status__ = "Prototype"
 
 # -------------------------------------------------------------------
 
-
+import os
 import unittest
-from lelesk import LeLeskWSD
+from lelesk import LeLeskWSD, LeskCache
+
+
+TEST_DIR = os.path.dirname(__file__)
+TEST_CACHE = os.path.join(TEST_DIR, 'data', 'test_cache.db')
 
 
 class TestMain(unittest.TestCase):
@@ -50,21 +54,53 @@ class TestMain(unittest.TestCase):
         for candidate, score, freq in scores:
             print("Candidate: {c} | score: {s} | freq: {f}".format(c=candidate.synset, s=score, f=freq))
 
+    def test_data(self):
+        return 'fish', 'there are so many fish in the river'
+
     def test_basic(self):
         print("Test LeLesk WSD")
+        # without using cache
+        #
         l = LeLeskWSD()
-        self.assertIsNotNone(l)
-        scores = l.lelesk_wsd('fish', 'There are so many fish in the river.')
+        w, sent = self.test_data()
+        scores = l.lelesk_wsd(w, sent, context=sent.split())
+        self.dump_scores(scores)
         self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
         self.assertEqual(scores[0].score, 2)
         self.assertEqual(scores[0].freq, 12)
-        # self.dump_scores(scores)
+        # wit tokenizer
+        #
+        l = LeLeskWSD()
+        w, sent = self.test_data()
+        scores = l.lelesk_wsd(w, sent)
+        self.dump_scores(scores)
+        self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
+        self.assertEqual(scores[0].score, 2)
+        self.assertEqual(scores[0].freq, 12)
+
+        # With using cache
+        #
+        l = LeLeskWSD(dbcache=LeskCache(TEST_CACHE).setup())
+        scores = l.lelesk_wsd(w, sent, context=sent.split())
+        self.dump_scores(scores)
+        self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
+        self.assertEqual(scores[0].score, 2)
+        self.assertEqual(scores[0].freq, 12)
 
     def test_mfs(self):
         print("Test MFS WSD")
+        # without cache
         l = LeLeskWSD()
-        self.assertIsNotNone(l)
-        scores = l.mfs_wsd('fish', 'There are so many fish in the river.')
+        w, sent = self.test_data()
+        scores = l.mfs_wsd(w, sent)
+        self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
+        self.assertEqual(scores[0].score, 12)
+        self.assertEqual(scores[0].freq, 12)
+
+        # with cache
+        l = LeLeskWSD(dbcache=LeskCache(TEST_CACHE).setup())
+        w, sent = self.test_data()
+        scores = l.mfs_wsd(w, sent)
         self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
         self.assertEqual(scores[0].score, 12)
         self.assertEqual(scores[0].freq, 12)

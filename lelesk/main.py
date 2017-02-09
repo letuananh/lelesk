@@ -49,6 +49,7 @@ from collections import namedtuple
 import nltk
 from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
+from chirptext.leutile import FileTool
 from chirptext.leutile import Counter, Timer, uniquify, header, TextReport, jilog
 from puchikarui import Schema, Execution  # DataSource, Table
 
@@ -185,7 +186,7 @@ class LeLeskWSD:
         tokens = [self.lemmatize(x) for x in tokens] + tokens
         return [w.lower() for w in tokens if w not in stopwords.words('english')]
 
-    def lelesk_wsd(self, word, sentence_text, expected_sense='', lemmatizing=True, pos=None, context=None):
+    def lelesk_wsd(self, word, sentence_text='', expected_sense='', lemmatizing=True, pos=None, context=None):
         ''' Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0
         '''
         #1. Retrieve candidates for the given word
@@ -242,7 +243,7 @@ class LeskCacheSchema(Schema):
 
 
 class LeskCache:
-    def __init__(self, wsd=None, db_file=None, debug_dir=None):
+    def __init__(self, db_file=None, wsd=None, debug_dir=None):
         ''' Create an instance of LeskCache
 
         Arguments:
@@ -253,7 +254,10 @@ class LeskCache:
         '''
         self.wsd = wsd
         self.db_file = db_file if db_file else LLConfig.LELESK_CACHE_DB_LOC
-        self.db = LeskCacheSchema(self.db_file)
+        if self.db_file:
+            # Create dir if needed
+            FileTool.create_dir(os.path.dirname(self.db_file))
+            self.db = LeskCacheSchema(self.db_file)
         self.script_file = LLConfig.LELESK_CACHE_DB_INIT_SCRIPT
         self.debug_dir = debug_dir if debug_dir else LLConfig.LELESK_CACHE_DEBUG_DIR
 
@@ -274,7 +278,11 @@ class LeskCache:
         self.db.commit()
 
     def select(self, synsetid):
-        return self.db.tokens.select('synsetid=?', (str(synsetid),))
+        result = self.db.tokens.select('synsetid=?', (str(synsetid),))
+        if result:
+            return [x.token for x in result]
+        else:
+            return None
 
     def validate(self):
         gwn = self.wsd.gwn
