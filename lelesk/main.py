@@ -40,6 +40,7 @@ __maintainer__ = "Le Tuan Anh"
 __email__ = "<tuananh.ke@gmail.com>"
 __status__ = "Prototype"
 
+import logging
 import os.path
 import operator
 import itertools
@@ -62,6 +63,9 @@ from yawlib.wordnetsql import WordNetSQL as WSQL
 # CONFIGURATION
 #-----------------------------------------------------------------------
 
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)
 
 ScoreTup = namedtuple('Score', 'candidate score freq'.split())
 
@@ -218,15 +222,14 @@ class LeLeskWSD:
             self.candidates_cache[(word, pos)] = self.build_lelesk_for_word(word, pos=pos)
         candidates = self.candidates_cache[(word, pos)]
         scores = []
-        
+        #
         for candidate in candidates:
             freq = self.wn.get_tagcount(candidate.synset.sid.to_wnsql())
             score = freq
             scores.append(ScoreTup(candidate, score, freq))
         scores.sort(key=operator.itemgetter(1))
         scores.reverse()
-
-        return scores        
+        return scores
 
 
 class LeskCacheSchema(Schema):
@@ -254,12 +257,20 @@ class LeskCache:
         '''
         self.wsd = wsd
         self.db_file = db_file if db_file else LLConfig.LELESK_CACHE_DB_LOC
-        if self.db_file:
-            # Create dir if needed
-            FileTool.create_dir(os.path.dirname(self.db_file))
-            self.db = LeskCacheSchema(self.db_file)
         self.script_file = LLConfig.LELESK_CACHE_DB_INIT_SCRIPT
         self.debug_dir = debug_dir if debug_dir else LLConfig.LELESK_CACHE_DEBUG_DIR
+        self.db = LeskCacheSchema(self.db_file)
+        # try to setup DB if needed
+        if self.db_file is not None:
+            # Create dir if needed
+            logger.info("LeskCache DB is located at {}".format(self.db_file))
+            FileTool.create_dir(os.path.dirname(self.db_file))
+            if not os.path.isfile(self.db_file) or os.path.getsize(self.db_file) == 0:
+                logger.info("Setting up LeskCache DB: {}".format(self.db_file))
+                self.setup()
+            else:
+                logger.info("LeskCache DB exists. No need to setup")
+                # try to be smart and perform setup
 
     def info(self):
         header("Pre-generate LESK tokens for all synsets for faster WSD")
