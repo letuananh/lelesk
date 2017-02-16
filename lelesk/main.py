@@ -56,8 +56,8 @@ from puchikarui import Schema, Execution  # DataSource, Table
 
 from .config import LLConfig
 from yawlib import SynsetID, YLConfig
-from yawlib.glosswordnet import SQLiteGWordNet
-from yawlib.wordnetsql import WordNetSQL as WSQL
+from yawlib import GWordnetSQLite as GWNSQL
+from yawlib import WordnetSQL as WSQL
 
 #-----------------------------------------------------------------------
 # CONFIGURATION
@@ -76,9 +76,9 @@ class LeLeskWSD:
     def __init__(self, wng_db_loc=None, wn30_loc=None, verbose=False, dbcache=None):
         if verbose:
             print("Initializing LeLeskWSD object ...")
-        self.wng_db_loc = wng_db_loc if wng_db_loc else YLConfig.WORDNET_30_GLOSS_DB_PATH
-        self.wn30_loc = wn30_loc if wn30_loc else YLConfig.WORDNET_30_PATH
-        self.gwn = SQLiteGWordNet(self.wng_db_loc)
+        self.wng_db_loc = wng_db_loc if wng_db_loc else YLConfig.GWN30_DB
+        self.wn30_loc = wn30_loc if wn30_loc else YLConfig.WNSQL30_PATH
+        self.gwn = GWNSQL(self.wng_db_loc)
         self.wn = WSQL(self.wn30_loc)
         self.tokenized_sentence_cache = {}
         self.lemmatized_word_cache = {}
@@ -143,13 +143,13 @@ class LeLeskWSD:
         if not ss:
             return []
         else:
-            lelesk_tokens.extend(ss.get_terms_text())
+            lelesk_tokens.extend(ss.get_tokens())
             lelesk_tokens.extend(ss.get_gramwords())
 
         # Retrieving tagged synsets
         sscol = self.gwn.get_synset_by_sks(ss.get_tags())
         for s in sscol:
-            lelesk_tokens.extend(s.get_terms_text())
+            lelesk_tokens.extend(s.get_tokens())
             lelesk_tokens.extend(s.get_gramwords())
 
         # Get hypehypo information from WordNet 30 DB
@@ -160,7 +160,7 @@ class LeLeskWSD:
         sscol = self.gwn.get_synsets_by_ids(gwn_sids)
         # dump_synsets(ss)
         for s in sscol:
-            lelesk_tokens.extend(s.get_terms_text())
+            lelesk_tokens.extend(s.get_tokens())
             lelesk_tokens.extend(s.get_gramwords())
 
         uniquified_lelesk_tokens = [w for w in uniquify(lelesk_tokens) if w not in stopwords.words('english')]
