@@ -50,8 +50,9 @@ from collections import namedtuple
 import nltk
 from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
-from chirptext.leutile import FileTool
-from chirptext.leutile import Counter, Timer, uniquify, header, TextReport, jilog
+from chirptext import FileHelper
+from chirptext import Counter, Timer, uniquify, header, TextReport
+from chirptext.leutile import jilog
 from puchikarui import Schema, Execution  # DataSource, Table
 
 from .config import LLConfig
@@ -264,7 +265,7 @@ class LeskCache:
         if self.db_file is not None:
             # Create dir if needed
             logger.info("LeskCache DB is located at {}".format(self.db_file))
-            FileTool.create_dir(os.path.dirname(self.db_file))
+            FileHelper.create_dir(os.path.dirname(self.db_file))
             if not os.path.isfile(self.db_file) or os.path.getsize(self.db_file) == 0:
                 logger.info("Setting up LeskCache DB: {}".format(self.db_file))
                 self.setup()
