@@ -53,7 +53,7 @@ from nltk.corpus import stopwords
 from chirptext import FileHelper
 from chirptext import Counter, Timer, uniquify, header, TextReport
 from chirptext.leutile import jilog
-from puchikarui import Schema, Execution  # DataSource, Table
+from puchikarui import Schema
 
 from .config import LLConfig
 from yawlib import SynsetID, YLConfig
@@ -234,8 +234,8 @@ class LeLeskWSD:
 
 
 class LeskCacheSchema(Schema):
-    def __init__(self, data_source=None):
-        Schema.__init__(self, data_source)
+    def __init__(self, data_source=None, setup_file=LLConfig.LELESK_CACHE_DB_INIT_SCRIPT):
+        Schema.__init__(self, data_source, setup_file)
         # tokens: synsetid token
         self.add_table('tokens', 'synsetid token'.split())
         # synset: synsetid offset pos synsetid_wn30 freq
@@ -258,7 +258,6 @@ class LeskCache:
         '''
         self.wsd = wsd
         self.db_file = db_file if db_file else LLConfig.LELESK_CACHE_DB_LOC
-        self.script_file = LLConfig.LELESK_CACHE_DB_INIT_SCRIPT
         self.debug_dir = debug_dir if debug_dir else LLConfig.LELESK_CACHE_DEBUG_DIR
         self.db = LeskCacheSchema(self.db_file)
         # try to setup DB if needed
@@ -266,12 +265,6 @@ class LeskCache:
             # Create dir if needed
             logger.info("LeskCache DB is located at {}".format(self.db_file))
             FileHelper.create_dir(os.path.dirname(self.db_file))
-            if not os.path.isfile(self.db_file) or os.path.getsize(self.db_file) == 0:
-                logger.info("Setting up LeskCache DB: {}".format(self.db_file))
-                self.setup()
-            else:
-                logger.info("LeskCache DB exists. No need to setup")
-                # try to be smart and perform setup
 
     def info(self):
         header("Pre-generate LESK tokens for all synsets for faster WSD")
@@ -284,10 +277,9 @@ class LeskCache:
 
     def cache(self, synsetid, tokens):
         # delete tokens first
-        self.db.ds().execute('DELETE FROM tokens WHERE synsetid=?', [str(synsetid)])
+        self.db.ds.execute('DELETE FROM tokens WHERE synsetid=?', [str(synsetid)])
         for token in tokens:
             self.db.tokens.insert((str(synsetid), token))
-        self.db.commit()
 
     def select(self, synsetid):
         result = self.db.tokens.select('synsetid=?', (str(synsetid),))
@@ -388,26 +380,13 @@ class LeskCache:
                 c.count("WN30 Found")
         c.summarise()
 
-    def setup(self):
-        ''' Setup cache DB'''
-        with Execution(self.db) as exe:
-            print('Creating database file ...')
-            exe.ds.executefile(self.script_file)
-            # try:
-            #     for token in exe.schema.tokens.select():
-            #         print(meta)
-            # except Exception as e:
-            #     print("Error while setting up database ... e = %s" % e)
-        return self  # end setup()
-
     def generate(self):
         synsets = self.wsd.gwn.all_synsets(deep_select=False)
-        with Execution(self.db) as exe:
+        with self.db.ds.open() as exe:
             total_synsets = len(synsets)
             for idx, synset in enumerate(synsets):
                 jilog("Generating tokens for %s (%s/%s)" % (synset.id, idx, total_synsets))
                 debug_file = TextReport(os.path.join(self.debug_dir, synset.offset + '.txt'))
                 tokens = self.wsd.build_lelesk_set(synset.id, debug_file)
                 for token in tokens:
-                    exe.schema.tokens.insert([synset.id, token])
-            exe.ds.commit()
+                    self.db.tokens.insert([synset.id, token], exe=exe)

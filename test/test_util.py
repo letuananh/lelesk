@@ -87,7 +87,6 @@ class TestMain(unittest.TestCase):
         print('Test DB loc: {}'.format(DB_PATH))
         l = LeskCache(db_file=DB_PATH)
         # l = LeskCache()
-        l.setup()
         l.cache(str(fish[0].sid), leset)
         l.cache(fish[0].sid, leset)  # cache this twice
         ls = l.select(fish[0].sid)

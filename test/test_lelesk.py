@@ -80,7 +80,7 @@ class TestMain(unittest.TestCase):
 
         # With using cache
         #
-        l = LeLeskWSD(dbcache=LeskCache(TEST_CACHE).setup())
+        l = LeLeskWSD(dbcache=LeskCache(TEST_CACHE))
         scores = l.lelesk_wsd(w, sent, context=sent.split())
         self.dump_scores(scores)
         self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
@@ -98,7 +98,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(scores[0].freq, 12)
 
         # with cache
-        l = LeLeskWSD(dbcache=LeskCache(TEST_CACHE).setup())
+        l = LeLeskWSD(dbcache=LeskCache(TEST_CACHE))
         w, sent = self.test_data()
         scores = l.mfs_wsd(w, sent)
         self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
