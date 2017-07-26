@@ -84,6 +84,8 @@ class LeLeskWSD:
         self.lemmatized_word_cache = {}
         self.lelesk_tokens_sid_cache = {}  # cache tokens of a given sid
 
+        if dbcache and not isinstance(dbcache, LeskCache):
+            dbcache = LeskCache(dbcache)
         self.dbcache = dbcache
         self.lemmatizer = WordNetLemmatizer()
         self.candidates_cache = {}
@@ -234,7 +236,7 @@ class LeLeskWSD:
 
 class LeskCacheSchema(Schema):
     def __init__(self, data_source=None, setup_file=LLConfig.LELESK_CACHE_DB_INIT_SCRIPT):
-        Schema.__init__(self, data_source, setup_file)
+        Schema.__init__(self, data_source, setup_file=setup_file)
         # tokens: synsetid token
         self.add_table('tokens', 'synsetid token'.split())
         # synset: synsetid offset pos synsetid_wn30 freq
@@ -263,7 +265,8 @@ class LeskCache:
         if self.db_file is not None:
             # Create dir if needed
             logger.info("LeskCache DB is located at {}".format(self.db_file))
-            FileHelper.create_dir(os.path.dirname(self.db_file))
+            if self.db_file != ':memory:':
+                FileHelper.create_dir(os.path.dirname(self.db_file))
 
     def info(self):
         header("Pre-generate LESK tokens for all synsets for faster WSD")
@@ -277,8 +280,9 @@ class LeskCache:
     def cache(self, synsetid, tokens):
         # delete tokens first
         self.db.ds.execute('DELETE FROM tokens WHERE synsetid=?', [str(synsetid)])
-        for token in tokens:
-            self.db.tokens.insert((str(synsetid), token))
+        with self.db.exe() as exe:
+            for token in tokens:
+                self.db.tokens.insert((str(synsetid), token), exe=exe)
 
     def select(self, synsetid):
         result = self.db.tokens.select('synsetid=?', (str(synsetid),))

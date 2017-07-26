@@ -87,6 +87,10 @@ class TestMain(unittest.TestCase):
         self.assertEqual(scores[0].score, 2)
         self.assertEqual(scores[0].freq, 12)
 
+    def test_cache(self):
+        l = LeLeskWSD(dbcache=":memory:")
+        l.dbcache.select('01775164-v')
+        
     def test_mfs(self):
         print("Test MFS WSD")
         # without cache
