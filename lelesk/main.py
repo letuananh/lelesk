@@ -52,7 +52,6 @@ from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
 from chirptext import FileHelper
 from chirptext import Counter, Timer, uniquify, header, TextReport
-from chirptext.leutile import jilog
 from puchikarui import Schema
 
 from .config import LLConfig
@@ -385,7 +384,7 @@ class LeskCache:
         with self.db.ds.open() as exe:
             total_synsets = len(synsets)
             for idx, synset in enumerate(synsets):
-                jilog("Generating tokens for %s (%s/%s)" % (synset.id, idx, total_synsets))
+                logger.info("Generating tokens for %s (%s/%s)" % (synset.id, idx, total_synsets))
                 debug_file = TextReport(os.path.join(self.debug_dir, synset.offset + '.txt'))
                 tokens = self.wsd.build_lelesk_set(synset.id, debug_file)
                 for token in tokens:

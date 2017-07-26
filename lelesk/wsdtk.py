@@ -53,7 +53,7 @@ import os.path
 import argparse
 from collections import namedtuple
 
-from chirptext.leutile import jilog, Timer, Counter, Table
+from chirptext.leutile import Timer, Counter, Table
 from yawlib import YLConfig
 
 from .main import LeLeskWSD, LeskCache
@@ -66,7 +66,6 @@ def generate_tokens(wsd):
     '''
     lesk_cache = LeskCache(wsd)
     lesk_cache.info()
-    lesk_cache.setup()
     lesk_cache.generate()
     print("Done!")
 
@@ -144,14 +143,11 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
             # Perform WSD on given word & sentence
             t.start('Analysing word ["%s"] on sentence: %s' % (word, sentence_text))
             if method == 'mfs':
-                # jilog("Activating MFS WSD")
                 scores = wsd_obj.mfs_wsd(word, sentence_text, correct_sense, lemmatizing=lemmatizing, pos=pos)
             else:
                 if pretokenized and context and len(context) > 0:
-                    # jilog("Activating Lelesk with pretokenized")
                     scores = wsd_obj.lelesk_wsd(word, sentence_text, correct_sense, lemmatizing=lemmatizing, pos=pos, context=context)
                 else:
-                    # jilog("Activating Lelesk with NTLK tokenizer")
                     scores = wsd_obj.lelesk_wsd(word, sentence_text, correct_sense, lemmatizing=lemmatizing, pos=pos)
             suggested_senses = [score.candidate.synset.sid for score in scores[:3]]
             # c.count("TotalSense")
@@ -189,7 +185,7 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
     
 
     if outfile_loc:
-        jilog("Writing output file ==> %s..." % (outfile_loc,))
+        print("Writing output file ==> %s..." % (outfile_loc,))
 
         with open(outfile_loc, 'w') as outfile:
             outfile.write("Sections\n")
@@ -229,7 +225,7 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
             outfile.write("| Wrong                               |   %s | %s |\n" % (str(c['Wrong']).rjust(5, ' '), str(len(wrong_count)).rjust(5, ' ')))
             outfile.write("| NoSense                             |   %s | %s |\n" % (str(c['NoSense']).rjust(5, ' '), str(len(nosense_count)).rjust(5, ' ')))
             outfile.write("| TotalSense                          |   %s | %s |\n" % (str(c['TotalSense']).rjust(5, ' '), str('').rjust(5, ' '))) # totalcount is wrong!
-    jilog("Batch job finished")
+    print("Batch job finished")
 
 def dump_counter(counter, file_obj, header):
     tbl = Table()
@@ -278,13 +274,13 @@ def main():
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--verbose", action="store_true")
     group.add_argument("-q", "--quiet", action="store_true")
-    
+
     # Parse input arguments
     args = parser.parse_args()
 
-    wng_db_loc = args.glosswn if args.glosswn else YLConfig.WORDNET_30_GLOSS_DB_PATH
-    wn30_loc = args.wnsql if args.wnsql else YLConfig.WORDNET_30_PATH
-    wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet, dbcache=LeskCache().setup())
+    wng_db_loc = args.glosswn if args.glosswn else YLConfig.GWN30_DB
+    wn30_loc = args.wnsql if args.wnsql else YLConfig.WNSQL30_PATH
+    wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet, dbcache=LeskCache())
     wsd_method = args.method if args.method else 'lelesk'
 
     # Now do something ...
