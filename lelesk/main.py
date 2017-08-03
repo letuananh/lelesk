@@ -280,9 +280,9 @@ class LeskCache:
     def cache(self, synsetid, tokens):
         # delete tokens first
         self.db.ds.execute('DELETE FROM tokens WHERE synsetid=?', [str(synsetid)])
-        with self.db.exe() as exe:
+        with self.db.ctx() as ctx:
             for token in tokens:
-                self.db.tokens.insert((str(synsetid), token), exe=exe)
+                self.db.tokens.insert(str(synsetid), token, ctx=ctx)
 
     def select(self, synsetid):
         result = self.db.tokens.select('synsetid=?', (str(synsetid),))
@@ -385,11 +385,11 @@ class LeskCache:
 
     def generate(self):
         synsets = self.wsd.gwn.all_synsets(deep_select=False)
-        with self.db.ds.open() as exe:
+        with self.db.ds.open() as ctx:
             total_synsets = len(synsets)
             for idx, synset in enumerate(synsets):
                 logger.info("Generating tokens for %s (%s/%s)" % (synset.id, idx, total_synsets))
                 debug_file = TextReport(os.path.join(self.debug_dir, synset.offset + '.txt'))
                 tokens = self.wsd.build_lelesk_set(synset.id, debug_file)
                 for token in tokens:
-                    self.db.tokens.insert([synset.id, token], exe=exe)
+                    self.db.tokens.insert(synset.id, token, ctx=ctx)
