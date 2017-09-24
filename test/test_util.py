@@ -52,6 +52,11 @@ TEST_CACHE = os.path.join(TEST_DIR, 'data', 'test_cache.db')
 
 class TestMain(unittest.TestCase):
 
+    def test_known_concepts(self):
+        wsd = LeLeskWSD()
+        ss = wsd.smart_synset_search('Ali Baba', pos=None)
+        print(ss)
+
     def test_synset_search(self):
         wsd = LeLeskWSD()
         nsses = wsd.smart_synset_search('love', 'n')

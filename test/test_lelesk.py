@@ -90,7 +90,7 @@ class TestMain(unittest.TestCase):
     def test_cache(self):
         l = LeLeskWSD(dbcache=":memory:")
         l.dbcache.select('01775164-v')
-        
+
     def test_mfs(self):
         print("Test MFS WSD")
         # without cache

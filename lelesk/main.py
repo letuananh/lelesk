@@ -43,12 +43,11 @@ __status__ = "Prototype"
 import logging
 import os.path
 import operator
-import itertools
 from collections import defaultdict as dd
 from collections import namedtuple
 
 import nltk
-from nltk import WordNetLemmatizer
+# from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
 from chirptext import FileHelper
 from chirptext import Counter, Timer, uniquify, header, TextReport
@@ -68,6 +67,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 ScoreTup = namedtuple('Score', 'candidate score freq'.split())
+WSDCandidate = namedtuple('WSDCandidate', 'id synset tokens'.split())
 
 
 class LeLeskWSD:
@@ -87,12 +87,18 @@ class LeLeskWSD:
         if dbcache and not isinstance(dbcache, LeskCache):
             dbcache = LeskCache(dbcache)
         self.dbcache = dbcache
-        self.lemmatizer = WordNetLemmatizer()
+        self._lemmatizer = None
         self.candidates_cache = {}
         self.verbose = verbose
         self.word_cache = {}
         if verbose:
             print("LeLeskWSD object has been initialized ...")
+
+    @property
+    def lemmatizer(self):
+        if self._lemmatizer is None:
+            self._lemmatizer = nltk.WordNetLemmatizer()
+        return self._lemmatizer
 
     def smart_synset_search(self, term, pos):
         sses = self.gwn.get_synsets_by_term(term=term, pos=pos)
@@ -105,16 +111,16 @@ class LeLeskWSD:
         cache_key = (a_word, pos)
         if cache_key in self.word_cache:
             return self.word_cache[cache_key]
-        sses = self.smart_synset_search(term=a_word, pos=pos)
-        x = itertools.count(1)
-        candidates = []
-        cantemp = namedtuple('WSDCandidate', 'id synset tokens'.split())
-        for ss in sses:
-            canid = next(x)
-            tokens = self.build_lelesk_set(ss.sid)
-            candidates.append(cantemp(canid, ss, tokens))
-
+        synsets = self.smart_synset_search(term=a_word, pos=pos)
+        candidates = self.build_candidates(synsets)
         self.word_cache[cache_key] = candidates
+        return candidates
+
+    def build_candidates(self, synsets):
+        candidates = []
+        for idx, ss in enumerate(synsets):
+            tokens = self.build_lelesk_set(ss.sid)
+            candidates.append(WSDCandidate(idx + 1, ss, tokens))
         return candidates
 
     def build_lelesk_set(self, a_sid):
@@ -192,15 +198,18 @@ class LeLeskWSD:
         tokens = [self.lemmatize(x) for x in tokens] + tokens
         return [w.lower() for w in tokens if w not in stopwords.words('english')]
 
-    def lelesk_wsd(self, word, sentence_text='', expected_sense='', lemmatizing=True, pos=None, context=None):
+    def lelesk_wsd(self, word, sentence_text='', expected_sense='', lemmatizing=True, pos=None, context=None, synsets=None):
         ''' Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0
         '''
-        #1. Retrieve candidates for the given word
-        if (word, pos) not in self.candidates_cache:
-            self.candidates_cache[(word, pos)] = self.build_lelesk_for_word(word, pos=pos)
-        candidates = self.candidates_cache[(word, pos)]
+        # 1. Retrieve candidates for the given word
+        if not synsets:
+            if (word, pos) not in self.candidates_cache:
+                self.candidates_cache[(word, pos)] = self.build_lelesk_for_word(word, pos=pos)
+            candidates = self.candidates_cache[(word, pos)]
+        else:
+            candidates = self.build_candidates(synsets)
 
-        #2. Calculate overlap between the context and each given word
+        # 2. Calculate overlap between the context and each given word
         if not context:
             context = uniquify(self.prepare_data(sentence_text))
 
@@ -216,13 +225,16 @@ class LeLeskWSD:
         scores.reverse()
         return scores
 
-    def mfs_wsd(self, word, sentence_text, expected_sense='', lemmatizing=True, pos=None):
+    def mfs_wsd(self, word, sentence_text, expected_sense='', lemmatizing=True, pos=None, synsets=None):
         '''Perform Word-sense disambiguation with just most-frequent senses
         '''
-        #1. Retrieve candidates for the given word
-        if (word, pos) not in self.candidates_cache:
-            self.candidates_cache[(word, pos)] = self.build_lelesk_for_word(word, pos=pos)
-        candidates = self.candidates_cache[(word, pos)]
+        # 1. Retrieve candidates for the given word
+        if not synsets:
+            if (word, pos) not in self.candidates_cache:
+                self.candidates_cache[(word, pos)] = self.build_lelesk_for_word(word, pos=pos)
+            candidates = self.candidates_cache[(word, pos)]
+        else:
+            candidates = self.build_candidates(synsets)
         scores = []
         #
         for candidate in candidates:
