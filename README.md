@@ -3,7 +3,7 @@ Le's Lesk
 
 An attempt to improve extended LESK using glosstag WordNet
 
-#REQUIRED PACKAGES
+# REQUIRED PACKAGES
 ----------------------
 
 1. Princeton WordNet Gloss Corpus [WNG]
@@ -17,7 +17,7 @@ An attempt to improve extended LESK using glosstag WordNet
 3. NLTK version 3.0
   - Home page    : http://nltk.org/
 
-#INSTALLATION
+# INSTALLATION
 ----------------------
 1. Install NLTK & download all data
 2. create folder: ~/wordnet
@@ -27,7 +27,7 @@ An attempt to improve extended LESK using glosstag WordNet
 ```
 python3 gwntk.py -c
 ```
-#USING LeLESK
+# USING LeLESK
 ----------------------
 To make a single WSD call, execute the following command:
 ```
@@ -43,7 +43,7 @@ To run WSD in batch mode, execute the following command:
 python3 wsdtk.py -b data/datafile.txt -o data/datafile_summary.txt > data/datafile_details.txt
 ```
 
-#RESULT
+# RESULT
 
 On a decent PC with quadcore i7 and 4 GB RAM, it takes ~13 minutes to process annotated document "The Adventure of the Speckled Band" in NTU-MC. This is the result you should be able to get with the latest version:
 
