@@ -69,14 +69,14 @@ class TestMain(unittest.TestCase):
     def test_lelesk_set(self):
         wsd = LeLeskWSD()
         fish = wsd.smart_synset_search('fish', 'n')
-        leset = wsd.build_lelesk_set(fish[0].sid)
+        leset = wsd.build_lelesk_set(fish[0].ID)
         self.assertEqual(len(leset), 192)
         self.assertIn('fish', leset)
         self.assertIn('aquatic', leset)
         self.assertIn('shark', leset)
         # now with cache
         wsd = LeLeskWSD(dbcache=LeskCache())
-        lesetc = wsd.build_lelesk_set(fish[0].sid)
+        lesetc = wsd.build_lelesk_set(fish[0].ID)
         self.assertEqual(set(leset), set(lesetc))
         # TODO: Test this method properly
 
@@ -84,7 +84,7 @@ class TestMain(unittest.TestCase):
         wsd = LeLeskWSD()
         # make sure that we have a token list
         fish = wsd.smart_synset_search('fish', 'n')
-        leset = wsd.build_lelesk_set(fish[0].sid)
+        leset = wsd.build_lelesk_set(fish[0].ID)
         self.assertEqual(len(leset), 192)
 
         # try to cache our token list now ...
@@ -92,9 +92,9 @@ class TestMain(unittest.TestCase):
         print('Test DB loc: {}'.format(DB_PATH))
         l = LeskCache(db_file=DB_PATH)
         # l = LeskCache()
-        l.cache(str(fish[0].sid), leset)
-        l.cache(fish[0].sid, leset)  # cache this twice
-        ls = l.select(fish[0].sid)
+        l.cache(str(fish[0].ID), leset)
+        l.cache(fish[0].ID, leset)  # cache this twice
+        ls = l.select(fish[0].ID)
         self.assertEqual(len(ls), 192)
 
 

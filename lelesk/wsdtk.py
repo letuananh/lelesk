@@ -149,7 +149,7 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
                     scores = wsd_obj.lelesk_wsd(word, sentence_text, correct_sense, lemmatizing=lemmatizing, pos=pos, context=context)
                 else:
                     scores = wsd_obj.lelesk_wsd(word, sentence_text, correct_sense, lemmatizing=lemmatizing, pos=pos)
-            suggested_senses = [score.candidate.synset.sid for score in scores[:3]]
+            suggested_senses = [score.candidate.synset.ID for score in scores[:3]]
             # c.count("TotalSense")
 
             if correct_sense in YLConfig.NTUMC_PRONOUNS:

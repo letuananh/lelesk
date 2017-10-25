@@ -100,18 +100,18 @@ class LeLeskWSD:
             self._lemmatizer = nltk.WordNetLemmatizer()
         return self._lemmatizer
 
-    def smart_synset_search(self, term, pos):
-        sses = self.gwn.get_synsets_by_term(term=term, pos=pos)
+    def smart_synset_search(self, lemma, pos):
+        sses = self.gwn.search(lemma=lemma, pos=pos)
         if len(sses) == 0:
             # try replace '-' with space
-            sses = self.gwn.get_synsets_by_term(term=term.replace('-', ' '), pos=pos)
+            sses = self.gwn.search(lemma=lemma.replace('-', ' '), pos=pos)
         return sses
 
     def build_lelesk_for_word(self, a_word, pos=None):
         cache_key = (a_word, pos)
         if cache_key in self.word_cache:
             return self.word_cache[cache_key]
-        synsets = self.smart_synset_search(term=a_word, pos=pos)
+        synsets = self.smart_synset_search(lemma=a_word, pos=pos)
         candidates = self.build_candidates(synsets)
         self.word_cache[cache_key] = candidates
         return candidates
@@ -119,7 +119,7 @@ class LeLeskWSD:
     def build_candidates(self, synsets):
         candidates = []
         for idx, ss in enumerate(synsets):
-            tokens = self.build_lelesk_set(ss.sid)
+            tokens = self.build_lelesk_set(ss.ID)
             candidates.append(WSDCandidate(idx + 1, ss, tokens))
         return candidates
 
@@ -161,7 +161,7 @@ class LeLeskWSD:
             lelesk_tokens.extend(s.get_gramwords())
 
         # Get hypehypo information from WordNet 30 DB
-        wn30_hh_sids = self.wn.get_hypehypo(ss.sid)
+        wn30_hh_sids = self.wn.get_hypehypo(ss.ID)
         # Convert them to GWN sids
         gwn_sids = [str(sid.dpos) + str(sid.dsynsetid)[1:] for sid in wn30_hh_sids]
         # Get synsets from Gloss WordNet
@@ -219,7 +219,7 @@ class LeLeskWSD:
         for candidate in candidates:
             candidate_set = set(candidate.tokens)
             score = len(context_set.intersection(candidate_set))
-            scores.append(ScoreTup(candidate, score, self.wn.get_tagcount(candidate.synset.sid.to_wnsql())))
+            scores.append(ScoreTup(candidate, score, self.wn.get_tagcount(candidate.synset.ID.to_wnsql())))
             # scores.append([candidate, score, candidate.sense.tagcount])
         scores.sort(key=operator.itemgetter(1, 2))
         scores.reverse()
@@ -238,7 +238,7 @@ class LeLeskWSD:
         scores = []
         #
         for candidate in candidates:
-            freq = self.wn.get_tagcount(candidate.synset.sid.to_wnsql())
+            freq = self.wn.get_tagcount(candidate.synset.ID.to_wnsql())
             score = freq
             scores.append(ScoreTup(candidate, score, freq))
         scores.sort(key=operator.itemgetter(1))
@@ -353,7 +353,7 @@ class LeskCache:
         gwn_ss = gwn.get_all_sensekeys()
         gwn_skmap = {}
         for item in gwn_ss:
-            gwn_skmap[item.sensekey] = item.sid
+            gwn_skmap[item.sensekey] = item.ID
         t.end("Done GWN")
 
         t.start('Caching GWN tagged sensekey')
