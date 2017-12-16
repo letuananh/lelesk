@@ -58,7 +58,9 @@ from yawlib import YLConfig
 
 from .main import LeLeskWSD, LeskCache
 
-#-----------------------------------------------------------------------
+# -----------------------------------------------------------------------
+
+OutputLine = namedtuple('OutputLine', 'results word correct_sense suggested_sense sentence_text'.split())
 
 
 def generate_tokens(wsd):
@@ -69,13 +71,11 @@ def generate_tokens(wsd):
     lesk_cache.generate()
     print("Done!")
 
-#-----------------------------------------------------------------------
 
-OutputLine=namedtuple('OutputLine', 'results word correct_sense suggested_sense sentence_text'.split())
+# -----------------------------------------------------------------------
 
 def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=False, assume_perfect_POS=False, lemmatizing=False, pretokenized=False):
     ''' Perform WSD in batch mode (input is a text file with each line is a sentence)
-        
         Arguments:
             infile_loc         -- path to input file (Tab separated file)
             wsd_obj            -- WSD component (e.g. LeLeskWSD object)
@@ -86,21 +86,20 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
             lemmatizing        -- Lemmatize tokens
             pretokenized       -- Use context's tokens from input file
     '''
-    tbatch = Timer() # total time used to process this batch
+    tbatch = Timer()  # total time used to process this batch
     tbatch.start("Batch WSD started | Method=%s | File = %s" % (method, infile_loc))
     t = Timer()
     t.start("Reading file %s" % infile_loc)
     lines = open(os.path.expanduser(infile_loc)).readlines()
     t.end("File has been loaded")
 
-    c=Counter('Match InTop3 Wrong NoSense TotalSense'.split())
+    c = Counter('Match InTop3 Wrong NoSense TotalSense'.split())
     outputlines = []
     # Counters for different type of words
     match_count = Counter()
     top3_count = Counter()
     wrong_count = Counter()
     nosense_count = Counter()
-
 
     # sample line in input file:
     # adventure 00796315-n  n   The Adventure of the Speckled Band  the|adventure|of|the|speckle|band
@@ -182,7 +181,6 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
             t.end('Analysed word ["%s"] (%s/%s completed)' % (word, processed, total_lines))
     print("")
     tbatch.start("Batch WSD finished | Method=%s | File = %s" % (method, infile_loc))
-    
 
     if outfile_loc:
         print("Writing output file ==> %s..." % (outfile_loc,))
@@ -227,6 +225,7 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
             outfile.write("| TotalSense                          |   %s | %s |\n" % (str(c['TotalSense']).rjust(5, ' '), str('').rjust(5, ' '))) # totalcount is wrong!
     print("Batch job finished")
 
+
 def dump_counter(counter, file_obj, header):
     tbl = Table()
     tbl.add_row(["Synset ID", "Lemma", "Count"])
@@ -242,7 +241,8 @@ def dump_counter(counter, file_obj, header):
     # write table
     tbl.print(print_func=print_tbl)
 
-#-----------------------------------------------------------------------
+
+# -----------------------------------------------------------------------
 
 def main():
     '''Main entry of WSD toolkit
@@ -310,8 +310,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# Note:
-# How to use this tool
-# ./main.py --candidates "love" --pos "v"

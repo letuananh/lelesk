@@ -41,6 +41,7 @@ __status__ = "Prototype"
 
 import os
 import unittest
+import logging
 from lelesk import LeLeskWSD, LeskCache
 
 ################################################################
@@ -48,6 +49,10 @@ from lelesk import LeLeskWSD, LeskCache
 ################################################################
 TEST_DIR = os.path.dirname(__file__)
 TEST_CACHE = os.path.join(TEST_DIR, 'data', 'test_cache.db')
+
+
+def get_logger():
+    return logging.getLogger(__name__)
 
 
 class TestMain(unittest.TestCase):
@@ -68,23 +73,26 @@ class TestMain(unittest.TestCase):
 
     def test_lelesk_set(self):
         wsd = LeLeskWSD()
-        fish = wsd.smart_synset_search('fish', 'n')
-        leset = wsd.build_lelesk_set(fish[0].ID)
+        fish_synsets = wsd.smart_synset_search('fish', 'n')
+        n02512053 = fish_synsets['02512053-n']
+        leset = wsd.build_lelesk_set(n02512053.ID)
+        get_logger().warning(leset)
         self.assertEqual(len(leset), 192)
         self.assertIn('fish', leset)
         self.assertIn('aquatic', leset)
         self.assertIn('shark', leset)
         # now with cache
         wsd = LeLeskWSD(dbcache=LeskCache())
-        lesetc = wsd.build_lelesk_set(fish[0].ID)
+        lesetc = wsd.build_lelesk_set(n02512053.ID)
         self.assertEqual(set(leset), set(lesetc))
         # TODO: Test this method properly
 
     def test_caching(self):
         wsd = LeLeskWSD()
         # make sure that we have a token list
-        fish = wsd.smart_synset_search('fish', 'n')
-        leset = wsd.build_lelesk_set(fish[0].ID)
+        fish_synsets = wsd.smart_synset_search('fish', 'n')
+        n02512053 = fish_synsets['02512053-n']
+        leset = wsd.build_lelesk_set(n02512053.ID)
         self.assertEqual(len(leset), 192)
 
         # try to cache our token list now ...
@@ -92,9 +100,9 @@ class TestMain(unittest.TestCase):
         print('Test DB loc: {}'.format(DB_PATH))
         l = LeskCache(db_file=DB_PATH)
         # l = LeskCache()
-        l.cache(str(fish[0].ID), leset)
-        l.cache(fish[0].ID, leset)  # cache this twice
-        ls = l.select(fish[0].ID)
+        l.cache(str(n02512053.ID), leset)
+        l.cache(n02512053.ID, leset)  # cache this twice
+        ls = l.select(n02512053.ID)
         self.assertEqual(len(ls), 192)
 
 

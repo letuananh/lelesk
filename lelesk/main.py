@@ -58,9 +58,9 @@ from yawlib import SynsetID, YLConfig
 from yawlib import GWordnetSQLite as GWNSQL
 from yawlib import WordnetSQL as WSQL
 
-#-----------------------------------------------------------------------
+# -----------------------------------------------------------------------
 # CONFIGURATION
-#-----------------------------------------------------------------------
+# -----------------------------------------------------------------------
 
 
 logger = logging.getLogger(__name__)
@@ -83,6 +83,7 @@ class LeLeskWSD:
         self.tokenized_sentence_cache = {}
         self.lemmatized_word_cache = {}
         self.lelesk_tokens_sid_cache = {}  # cache tokens of a given sid
+        self.__stopwords = None  # this should be loaded only once
 
         if dbcache and not isinstance(dbcache, LeskCache):
             dbcache = LeskCache(dbcache)
@@ -95,10 +96,26 @@ class LeLeskWSD:
             print("LeLeskWSD object has been initialized ...")
 
     @property
+    def stopwords(self):
+        if self.__stopwords is None:
+            self.__stopwords = stopwords.words('english')
+        return self.__stopwords
+
+    @property
     def lemmatizer(self):
         if self._lemmatizer is None:
             self._lemmatizer = nltk.WordNetLemmatizer()
         return self._lemmatizer
+
+    def lemmatize(self, word):
+        if word not in self.lemmatized_word_cache:
+            self.lemmatized_word_cache[word] = self.lemmatizer.lemmatize(word)
+        return self.lemmatized_word_cache[word]
+
+    def tokenize(self, sentence_text):
+        if sentence_text not in self.tokenized_sentence_cache:
+            self.tokenized_sentence_cache[sentence_text] = nltk.word_tokenize(sentence_text)
+        return self.tokenized_sentence_cache[sentence_text]
 
     def smart_synset_search(self, lemma, pos):
         sses = self.gwn.search(lemma=lemma, pos=pos)
@@ -125,69 +142,41 @@ class LeLeskWSD:
 
     def build_lelesk_set(self, a_sid):
         sid_obj = SynsetID.from_string(a_sid)
-        if self.dbcache:
+        if self.dbcache is not None:
             # try to fetch from DB then ...
             lelesk_tokens = self.dbcache.select(sid_obj)
             if lelesk_tokens:
                 return lelesk_tokens
-        # otherwise build the token list ...
+        # if cached, return from cache
         if a_sid in self.lelesk_tokens_sid_cache:
             return self.lelesk_tokens_sid_cache[a_sid]
-        # Try to get by WN30 synsetID first, then try by GWN synsetID
+        # otherwise build the token list ...
         lelesk_tokens = []
-
-        wn30_ss = self.wn.get_senseinfo_by_sid(a_sid)
-        ss = None
-        if not wn30_ss:
-            sses = self.gwn.get_synset_by_id(a_sid)
-            if len(sses) > 0:
-                ss = sses[0]
-        else:
-            try:
-                ss = self.gwn.get_synset_by_sk(wn30_ss.sensekey)
-            except:
-                # TODO: no sensekey???
-                ss = None
-        if not ss:
-            return []
-        else:
+        with self.gwn.ctx() as ctx, self.wn.ctx() as wnctx:
+            ss = self.gwn.get_synset(a_sid, ctx=ctx)
             lelesk_tokens.extend(ss.get_tokens())
             lelesk_tokens.extend(ss.get_gramwords())
+            # Retrieving tagged synsets
+            sscol = self.gwn.get_by_keys(ss.get_tags(), ctx=ctx)
+            for s in sscol:
+                lelesk_tokens.extend(s.get_tokens())
+                lelesk_tokens.extend(s.get_gramwords())
 
-        # Retrieving tagged synsets
-        sscol = self.gwn.get_synset_by_sks(ss.get_tags())
-        for s in sscol:
-            lelesk_tokens.extend(s.get_tokens())
-            lelesk_tokens.extend(s.get_gramwords())
+            # Get hypehypo information from WordNet 30 DB
+            ssids = self.wn.hypehypo(ss.ID, ctx=wnctx)
+            # Get synsets from Gloss WordNet
+            sscol = self.gwn.get_synsets(ssids, ctx=ctx)
+            # dump_synsets(ss)
+            for s in sscol:
+                lelesk_tokens.extend(s.get_tokens())
+                lelesk_tokens.extend(s.get_gramwords())
 
-        # Get hypehypo information from WordNet 30 DB
-        wn30_hh_sids = self.wn.get_hypehypo(ss.ID)
-        # Convert them to GWN sids
-        gwn_sids = [str(sid.dpos) + str(sid.dsynsetid)[1:] for sid in wn30_hh_sids]
-        # Get synsets from Gloss WordNet
-        sscol = self.gwn.get_synsets_by_ids(gwn_sids)
-        # dump_synsets(ss)
-        for s in sscol:
-            lelesk_tokens.extend(s.get_tokens())
-            lelesk_tokens.extend(s.get_gramwords())
-
-        uniquified_lelesk_tokens = [w for w in uniquify(lelesk_tokens) if w not in stopwords.words('english')]
-
+        uniquified_lelesk_tokens = [w for w in uniquify(lelesk_tokens) if w not in self.stopwords]
         self.lelesk_tokens_sid_cache[a_sid] = uniquified_lelesk_tokens
         # try to cache this token list ...
         if self.dbcache:
             self.dbcache.cache(sid_obj, uniquified_lelesk_tokens)
         return uniquified_lelesk_tokens
-
-    def tokenize(self, sentence_text):
-        if sentence_text not in self.tokenized_sentence_cache:
-            self.tokenized_sentence_cache[sentence_text] = nltk.word_tokenize(sentence_text)
-        return self.tokenized_sentence_cache[sentence_text]
-
-    def lemmatize(self, word):
-        if word not in self.lemmatized_word_cache:
-            self.lemmatized_word_cache[word] = self.lemmatizer.lemmatize(word)
-        return self.lemmatized_word_cache[word]
 
     def prepare_data(self, sentence_text):
         '''Given a sentence as a raw text string, perform tokenization, lemmatization
@@ -196,7 +185,7 @@ class LeLeskWSD:
         tokens = self.tokenize(sentence_text)
         # Lemmatization
         tokens = [self.lemmatize(x) for x in tokens] + tokens
-        return [w.lower() for w in tokens if w not in stopwords.words('english')]
+        return [w.lower() for w in tokens if w not in self.stopwords]
 
     def lelesk_wsd(self, word, sentence_text='', expected_sense='', lemmatizing=True, pos=None, context=None, synsets=None):
         ''' Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0

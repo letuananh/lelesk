@@ -23,6 +23,5 @@ function link_file {
 link_folder `readlink -f ../chirptext/chirptext` chirptext
 link_folder `readlink -f ../puchikarui/puchikarui` puchikarui
 link_folder `readlink -f ../yawlib/yawlib` yawlib
-link_folder `readlink -f ../nltk/nltk` nltk
 
 git submodule init && git submodule update

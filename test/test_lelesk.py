@@ -65,7 +65,7 @@ class TestMain(unittest.TestCase):
         w, sent = self.test_data()
         scores = l.lelesk_wsd(w, sent, context=sent.split())
         self.dump_scores(scores)
-        self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
+        self.assertEqual(scores[0].candidate.synset.ID, '02512053-n')
         self.assertEqual(scores[0].score, 2)
         self.assertEqual(scores[0].freq, 12)
         # wit tokenizer
@@ -74,7 +74,7 @@ class TestMain(unittest.TestCase):
         w, sent = self.test_data()
         scores = l.lelesk_wsd(w, sent)
         self.dump_scores(scores)
-        self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
+        self.assertEqual(scores[0].candidate.synset.ID, '02512053-n')
         self.assertEqual(scores[0].score, 2)
         self.assertEqual(scores[0].freq, 12)
 
@@ -83,7 +83,7 @@ class TestMain(unittest.TestCase):
         l = LeLeskWSD(dbcache=LeskCache(TEST_CACHE))
         scores = l.lelesk_wsd(w, sent, context=sent.split())
         self.dump_scores(scores)
-        self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
+        self.assertEqual(scores[0].candidate.synset.ID, '02512053-n')
         self.assertEqual(scores[0].score, 2)
         self.assertEqual(scores[0].freq, 12)
 
@@ -97,7 +97,7 @@ class TestMain(unittest.TestCase):
         l = LeLeskWSD()
         w, sent = self.test_data()
         scores = l.mfs_wsd(w, sent)
-        self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
+        self.assertEqual(scores[0].candidate.synset.ID, '02512053-n')
         self.assertEqual(scores[0].score, 12)
         self.assertEqual(scores[0].freq, 12)
 
@@ -105,10 +105,17 @@ class TestMain(unittest.TestCase):
         l = LeLeskWSD(dbcache=LeskCache(TEST_CACHE))
         w, sent = self.test_data()
         scores = l.mfs_wsd(w, sent)
-        self.assertEqual(scores[0].candidate.synset.sid, '02512053-n')
+        self.assertEqual(scores[0].candidate.synset.ID, '02512053-n')
         self.assertEqual(scores[0].score, 12)
         self.assertEqual(scores[0].freq, 12)
         # self.dump_scores(scores)
+
+    def test_fast_wsd(self):
+        # disable lemmatizer => faster
+        l = LeLeskWSD()
+        w, sent = self.test_data()
+        scores = l.mfs_wsd(w, sent, lemmatizing=False)
+        self.assertTrue(scores)
 
 
 if __name__ == '__main__':
