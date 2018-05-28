@@ -50,10 +50,11 @@ __status__ = "Prototype"
 
 # import sys
 import os.path
-import argparse
 from collections import namedtuple
 
 from chirptext.leutile import Timer, Counter, Table
+from chirptext.cli import CLIApp, setup_logging
+from chirptext import texttaglib as ttl
 from yawlib import YLConfig
 
 from .main import LeLeskWSD, LeskCache
@@ -61,6 +62,7 @@ from .main import LeLeskWSD, LeskCache
 # -----------------------------------------------------------------------
 
 OutputLine = namedtuple('OutputLine', 'results word correct_sense suggested_sense sentence_text'.split())
+setup_logging('logging.json', 'logs')
 
 
 def generate_tokens(wsd):
@@ -242,6 +244,86 @@ def dump_counter(counter, file_obj, header):
     tbl.print(print_func=print_tbl)
 
 
+def get_lelesk_set(cli, args):
+    ''' Get hyponyms and hypernyms given a synsetID '''
+    wsd = build_wsd_object(cli, args)
+    print(wsd.build_lelesk_set(args.synsetid))
+
+
+def build_wsd_object(cli, args):
+    wsd = LeLeskWSD(args.glosswn, args.wnsql, verbose=not args.quiet, dbcache=LeskCache())
+    return wsd
+
+
+def wsd_word(cli, args):
+    ''' Perform WSD on a given WORD in a given CONTEXT'''
+    wsd = build_wsd_object(cli, args)
+    if not args.method or args.method != 'mfs':
+        print("Performing LELESK on [{}] - Context: {}".format(args.word, args.context))
+        output = wsd.lelesk_wsd(args.word, args.context)
+    else:
+        print("Performing MFS on [{}] - Context: {}".format(args.word, args.context))
+        output = wsd.mfs_wsd(args.word, args.context)
+    for score in output:
+        c = score.candidate
+        print("  - Score: {} | {}: {} | freq={}".format(score.score, c.synset, c.synset.definition, score.freq))
+    pass
+
+
+def wsd_ttl(cli, args):
+    ''' Perform WSD on a TTL profile '''
+    wsd = build_wsd_object(cli, args)
+    doc = ttl.Document.read_ttl(args.input)
+    doc_path = os.path.dirname(args.output)
+    doc_name = os.path.basename(args.output)
+    new_doc = ttl.Document(doc_name, doc_path)
+    stopwords = set(wsd.stopwords)
+    if not args.method or args.method != 'mfs':
+        wsd_method = "LELESK"
+        wsd_func = wsd.lelesk_wsd
+    else:
+        wsd_method = "MFS"
+        wsd_func = wsd.mfs_wsd
+    for idx, sent in enumerate(doc):
+        if args.topk and args.topk < idx:
+            break
+        print("Processing: {} {}/{}".format(sent.text, idx + 1, len(doc)))
+        if not sent.tokens:
+            sent.tokens = wsd.tokenize(sent.text)
+        # lemmatize if needed
+        if not args.nolemmatize:
+            for token in sent.tokens:
+                if not token.lemma:
+                    token.lemma = wsd.lemmatize(token.text)
+        # build WSD context
+        context = set(token.text.lower() for token in sent.tokens)
+        context.update(token.lemma.lower() for token in sent.tokens)
+        context = context - stopwords
+        for token in sent:
+            cli.logger.debug("Performing {} on [{}] - Context: {}".format(wsd_method, token.text, sent.text))
+            output = wsd_func(token.lemma, sent.text, context=context)
+            if output:
+                c = output[0].candidate
+                concept = sent.new_concept(c.synset.ID, clemma=token.lemma, tokens=[token])
+                if not args.notag:
+                    # also make tags
+                    sent.new_tag(str(c.synset.ID), token.cfrom, token.cto, tagtype='WN')
+                cli.logger.debug(concept)
+        # write sentence
+        new_doc.add_sent(sent)
+    new_doc.write_ttl()
+    print("Output was written to {}".format(args.output))
+    print("Done")
+    pass
+
+
+def find_candidates(cli, args):
+    ''' Retrieve Word Sense Disambiguation candidates for a word '''
+    wsd = build_wsd_object(cli, args)
+    candidates = wsd.build_lelesk_for_word(args.candidates, args.pos)
+    print(candidates)
+
+
 # -----------------------------------------------------------------------
 
 def main():
@@ -253,59 +335,58 @@ def main():
         batch -i PATH_TO_FILE: Perform WSD on a batch file
         batch -i PATH_TO_SEMCOR_TEST_FILE: Perform WSD on Semcor (e.g. semcor_wn30.txt)
     '''
-    parser = argparse.ArgumentParser(description="LeLesk - Word-Sense Disambiguation Toolkit")
+    app = CLIApp(desc='LeLesk - Word-Sense Disambiguation Toolkit', logger=__name__)
     # Positional argument(s)
-    parser.add_argument('-w', '--wnsql', help='Location to WordNet 3.0 SQLite database')
-    parser.add_argument('-g', '--glosswn', help='Location to Gloss WordNet SQLite database')
-    parser.add_argument('-l', '--lelesk', help='Get hyponyms and hypernyms given a synsetID')
-    parser.add_argument('-c', '--candidates', help='Retrieve Word Sense Disambiguation candidates for a word')
-    parser.add_argument('-W', '--wsd', help='Perform WSD on a word [WSD] with a context X')
-    parser.add_argument('-x', '--context', help="Context to perform WSD")
+    app.parser.add_argument('-w', '--wnsql', help='Location to WordNet 3.0 SQLite database', default=YLConfig.WNSQL30_PATH)
+    app.parser.add_argument('-g', '--glosswn', help='Location to Gloss WordNet SQLite database', default=YLConfig.GWN30_DB)
 
-    parser.add_argument('-b', '--batch', help='Batch mode (e.g. python3 wsdtk.py -b myfile.txt')
-    parser.add_argument('-o', '--output', help='Output log for batch mode')
-    parser.add_argument('-m', '--method', help='WSD method (mfs/lelesk)')
+    task = app.add_task('lelesk', func=get_lelesk_set)
+    task.add_argument('synsetid', help='Synset ID')
 
-    parser.add_argument('-d', '--leskdb', help='Generate tokens for all synsets for all synsets for faster WSD', action="store_true")
+    task = app.add_task('candidates', func=find_candidates)
+    task.add_argument('word', help='Word to search for synsets')
 
-    parser.add_argument('-r', '--report', help='Path to report file (default will be stdout)')
+    task = app.add_task('wsd', func=wsd_word)
+    task.add_argument('word', help='word to perform WSD')
+    task.add_argument('context', help='Context to perform WSD')
+    task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk'])
 
-    # Optional argument(s)
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("-v", "--verbose", action="store_true")
-    group.add_argument("-q", "--quiet", action="store_true")
+    task = app.add_task('ttl', func=wsd_ttl)
+    task.add_argument('input', help='TTL profile')
+    task.add_argument('output', help='Output TTL profile')
+    task.add_argument('-n', '--topk', help='Only process top k sentences', type=int)
+    task.add_argument('--notag', help='Also use sentence level tags for annotations', action='store_true')
+    task.add_argument('--nolemmatize', help='Do not perform lemmatization', action='store_true')
+    task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk'])
 
-    # Parse input arguments
-    args = parser.parse_args()
+    app.run()
 
-    wng_db_loc = args.glosswn if args.glosswn else YLConfig.GWN30_DB
-    wn30_loc = args.wnsql if args.wnsql else YLConfig.WNSQL30_PATH
-    wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet, dbcache=LeskCache())
-    wsd_method = args.method if args.method else 'lelesk'
+    # parser.add_argument('-b', '--batch', help='Batch mode (e.g. python3 wsdtk.py -b myfile.txt')
+    # parser.add_argument('-o', '--output', help='Output log for batch mode')
+    # parser.add_argument('-m', '--method', help='WSD method (mfs/lelesk)')
+    # parser.add_argument('-d', '--leskdb', help='Generate tokens for all synsets for all synsets for faster WSD', action="store_true")
+    # parser.add_argument('-r', '--report', help='Path to report file (default will be stdout)')
 
-    # Now do something ...
-    if args.lelesk:
-        wsd.build_lelesk_set(args.lelesk)
-    # Retrieve all synset candidates and their tokens for a word
-    elif args.candidates:
-        wsd.build_lelesk_for_word(args.candidates, args.pos)
+    # wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet, dbcache=LeskCache())
+    # wsd_method = args.method if args.method else 'lelesk'
+
     # perform WSD for a single word given a context
-    elif args.wsd:
-        word = args.wsd
-        context = args.context
-        if not context:
-            print("Please use ./wsdtk.py -W MYWORD -x 'This is a context where MYWORD appear'")
-        else:
-            wsd.lelesk_wsd(word, context)
-    # batch mode WSD
-    elif args.batch:
-        batch_wsd(args.batch, wsd, args.output, wsd_method)
-        pass
-    elif args.leskdb:
-        generate_tokens(wsd)
-    else:
-        parser.print_help()
-    pass  # end main()
+    # if args.wsd:
+    #     word = args.wsd
+    #     context = args.context
+    #     if not context:
+    #         print("Please use ./wsdtk.py -W MYWORD -x 'This is a context where MYWORD appear'")
+    #     else:
+    #         wsd.lelesk_wsd(word, context)
+    # # batch mode WSD
+    # elif args.batch:
+    #     batch_wsd(args.batch, wsd, args.output, wsd_method)
+    #     pass
+    # elif args.leskdb:
+    #     generate_tokens(wsd)
+    # else:
+    #     parser.print_help()
+    # pass  # end main()
 
 
 if __name__ == "__main__":

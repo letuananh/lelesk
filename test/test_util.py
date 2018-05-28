@@ -60,7 +60,8 @@ class TestMain(unittest.TestCase):
     def test_known_concepts(self):
         wsd = LeLeskWSD()
         ss = wsd.smart_synset_search('Ali Baba', pos=None)
-        print(ss)
+        self.assertTrue(ss)
+        self.assertIn('Ali Baba', list(ss)[0].lemmas)
 
     def test_synset_search(self):
         wsd = LeLeskWSD()

@@ -149,7 +149,8 @@ class LeLeskWSD:
                 return lelesk_tokens
         # if cached, return from cache
         if a_sid in self.lelesk_tokens_sid_cache:
-            return self.lelesk_tokens_sid_cache[a_sid]
+            llset = self.lelesk_tokens_sid_cache[a_sid]
+            return llset
         # otherwise build the token list ...
         lelesk_tokens = []
         with self.gwn.ctx() as ctx, self.wn.ctx() as wnctx:
