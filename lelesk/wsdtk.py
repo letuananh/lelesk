@@ -278,12 +278,16 @@ def wsd_ttl(cli, args):
     doc_name = os.path.basename(args.output)
     new_doc = ttl.Document(doc_name, doc_path)
     stopwords = set(wsd.stopwords)
-    if not args.method or args.method != 'mfs':
+    if not args.method or args.method.lower() in ('lesk', 'lelesk'):
         wsd_method = "LELESK"
         wsd_func = wsd.lelesk_wsd
-    else:
+    elif args.method.lower() == 'mfs':
         wsd_method = "MFS"
         wsd_func = wsd.mfs_wsd
+    else:
+        print("Unknown WSD method: {}".format(args.method))
+        exit()
+    print("WSD method: {}".format(wsd_method))
     for idx, sent in enumerate(doc):
         if args.topk and args.topk < idx:
             break
@@ -357,8 +361,7 @@ def main():
     task.add_argument('-n', '--topk', help='Only process top k sentences', type=int)
     task.add_argument('--notag', help='Also use sentence level tags for annotations', action='store_true')
     task.add_argument('--nolemmatize', help='Do not perform lemmatization', action='store_true')
-    task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk'])
-
+    task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk', 'lesk'], default='lelesk')
     app.run()
 
     # parser.add_argument('-b', '--batch', help='Batch mode (e.g. python3 wsdtk.py -b myfile.txt')

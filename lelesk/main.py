@@ -215,7 +215,7 @@ class LeLeskWSD:
         scores.reverse()
         return scores
 
-    def mfs_wsd(self, word, sentence_text, expected_sense='', lemmatizing=True, pos=None, synsets=None):
+    def mfs_wsd(self, word, sentence_text, expected_sense='', lemmatizing=True, pos=None, synsets=None, **kwargs):
         '''Perform Word-sense disambiguation with just most-frequent senses
         '''
         # 1. Retrieve candidates for the given word
