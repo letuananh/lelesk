@@ -92,8 +92,32 @@ class LeLeskWSD:
         self.candidates_cache = {}
         self.verbose = verbose
         self.word_cache = {}
+
+        # database context for faster access
+        self.__dbcache_ctx = None
+        self.__gwn_ctx = None
+        self.__wn_ctx = None
         if verbose:
             print("LeLeskWSD object has been initialized ...")
+
+    def connect(self):
+        ''' Use a single database connection for DB access '''
+        self.disconnect()
+        if self.dbcache is not None:
+            self.__dbcache_ctx = self.dbcache.db.ctx()
+        self.__gwn_ctx = self.gwn.ctx()
+        self.__wn_ctx = self.wn.ctx()
+
+    def disconnect(self):
+        if self.__dbcache_ctx is not None:
+            self.__dbcache_ctx.close()
+            self.__dbcache_ctx = None
+        if self.__gwn_ctx is not None:
+            self.__gwn_ctx.close()
+            self.__gwn_ctx = None
+        if self.__wn_ctx is not None:
+            self.__wn_ctx.close()
+            self.__wn_ctx = None
 
     @property
     def stopwords(self):
@@ -118,10 +142,10 @@ class LeLeskWSD:
         return self.tokenized_sentence_cache[sentence_text]
 
     def smart_synset_search(self, lemma, pos):
-        sses = self.gwn.search(lemma=lemma, pos=pos)
+        sses = self.gwn.search(lemma=lemma, pos=pos, ctx=self.__gwn_ctx)
         if len(sses) == 0:
             # try replace '-' with space
-            sses = self.gwn.search(lemma=lemma.replace('-', ' '), pos=pos)
+            sses = self.gwn.search(lemma=lemma.replace('-', ' '), pos=pos, ctx=self.__gwn_ctx)
         return sses
 
     def build_lelesk_for_word(self, a_word, pos=None):
@@ -144,7 +168,7 @@ class LeLeskWSD:
         sid_obj = SynsetID.from_string(a_sid)
         if self.dbcache is not None:
             # try to fetch from DB then ...
-            lelesk_tokens = self.dbcache.select(sid_obj)
+            lelesk_tokens = self.dbcache.select(sid_obj, ctx=self.__dbcache_ctx)
             if lelesk_tokens:
                 return lelesk_tokens
         # if cached, return from cache
@@ -153,24 +177,23 @@ class LeLeskWSD:
             return llset
         # otherwise build the token list ...
         lelesk_tokens = []
-        with self.gwn.ctx() as ctx, self.wn.ctx() as wnctx:
-            ss = self.gwn.get_synset(a_sid, ctx=ctx)
-            lelesk_tokens.extend(ss.get_tokens())
-            lelesk_tokens.extend(ss.get_gramwords())
-            # Retrieving tagged synsets
-            sscol = self.gwn.get_by_keys(ss.get_tags(), ctx=ctx)
-            for s in sscol:
-                lelesk_tokens.extend(s.get_tokens())
-                lelesk_tokens.extend(s.get_gramwords())
+        ss = self.gwn.get_synset(a_sid, ctx=self.__gwn_ctx)
+        lelesk_tokens.extend(ss.get_tokens())
+        lelesk_tokens.extend(ss.get_gramwords())
+        # Retrieving tagged synsets
+        sscol = self.gwn.get_by_keys(ss.get_tags(), ctx=self.__gwn_ctx)
+        for s in sscol:
+            lelesk_tokens.extend(s.get_tokens())
+            lelesk_tokens.extend(s.get_gramwords())
 
-            # Get hypehypo information from WordNet 30 DB
-            ssids = self.wn.hypehypo(ss.ID, ctx=wnctx)
-            # Get synsets from Gloss WordNet
-            sscol = self.gwn.get_synsets(ssids, ctx=ctx)
-            # dump_synsets(ss)
-            for s in sscol:
-                lelesk_tokens.extend(s.get_tokens())
-                lelesk_tokens.extend(s.get_gramwords())
+        # Get hypehypo information from WordNet 30 DB
+        ssids = self.wn.hypehypo(ss.ID, ctx=self.__wn_ctx)
+        # Get synsets from Gloss WordNet
+        sscol = self.gwn.get_synsets(ssids, ctx=self.__gwn_ctx)
+        # dump_synsets(ss)
+        for s in sscol:
+            lelesk_tokens.extend(s.get_tokens())
+            lelesk_tokens.extend(s.get_gramwords())
 
         uniquified_lelesk_tokens = [w for w in uniquify(lelesk_tokens) if w not in self.stopwords]
         self.lelesk_tokens_sid_cache[a_sid] = uniquified_lelesk_tokens
@@ -209,7 +232,7 @@ class LeLeskWSD:
         for candidate in candidates:
             candidate_set = set(candidate.tokens)
             score = len(context_set.intersection(candidate_set))
-            scores.append(ScoreTup(candidate, score, self.wn.get_tagcount(candidate.synset.ID.to_wnsql())))
+            scores.append(ScoreTup(candidate, score, self.wn.get_tagcount(candidate.synset.ID.to_wnsql(), ctx=self.__wn_ctx)))
             # scores.append([candidate, score, candidate.sense.tagcount])
         scores.sort(key=operator.itemgetter(1, 2))
         scores.reverse()
@@ -224,11 +247,15 @@ class LeLeskWSD:
                 self.candidates_cache[(word, pos)] = self.build_lelesk_for_word(word, pos=pos)
             candidates = self.candidates_cache[(word, pos)]
         else:
-            candidates = self.build_candidates(synsets)
+            # candidates = self.build_candidates(synsets)
+            candidates = []
+            for idx, ss in enumerate(synsets):
+                candidates.append(WSDCandidate(idx + 1, ss, []))
+
         scores = []
         #
         for candidate in candidates:
-            freq = self.wn.get_tagcount(candidate.synset.ID.to_wnsql())
+            freq = self.wn.get_tagcount(candidate.synset.ID.to_wnsql(), ctx=self.__wn_ctx)
             score = freq
             scores.append(ScoreTup(candidate, score, freq))
         scores.sort(key=operator.itemgetter(1))
@@ -286,8 +313,8 @@ class LeskCache:
             for token in tokens:
                 self.db.tokens.insert(str(synsetid), token, ctx=ctx)
 
-    def select(self, synsetid):
-        result = self.db.tokens.select('synsetid=?', (str(synsetid),))
+    def select(self, synsetid, ctx=None):
+        result = self.db.tokens.select('synsetid=?', (str(synsetid),), ctx=ctx)
         if result:
             return [x.token for x in result]
         else:

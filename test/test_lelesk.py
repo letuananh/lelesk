@@ -95,6 +95,7 @@ class TestMain(unittest.TestCase):
         print("Test MFS WSD")
         # without cache
         l = LeLeskWSD()
+        l.connect()
         w, sent = self.test_data()
         scores = l.mfs_wsd(w, sent)
         self.assertEqual(scores[0].candidate.synset.ID, '02512053-n')
@@ -103,6 +104,7 @@ class TestMain(unittest.TestCase):
 
         # with cache
         l = LeLeskWSD(dbcache=LeskCache(TEST_CACHE))
+        l.connect()
         w, sent = self.test_data()
         scores = l.mfs_wsd(w, sent)
         self.assertEqual(scores[0].candidate.synset.ID, '02512053-n')
@@ -113,6 +115,7 @@ class TestMain(unittest.TestCase):
     def test_fast_wsd(self):
         # disable lemmatizer => faster
         l = LeLeskWSD()
+        l.connect()
         w, sent = self.test_data()
         scores = l.mfs_wsd(w, sent, lemmatizing=False)
         self.assertTrue(scores)
