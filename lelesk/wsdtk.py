@@ -273,10 +273,14 @@ def wsd_word(cli, args):
 def wsd_ttl(cli, args):
     ''' Perform WSD on a TTL profile '''
     wsd = build_wsd_object(cli, args)
-    doc = ttl.Document.read_ttl(args.input)
-    doc_path = os.path.dirname(args.output)
-    doc_name = os.path.basename(args.output)
-    new_doc = ttl.Document(doc_name, doc_path)
+    doc = ttl.read(args.input, mode=args.ttl_format)  # input TTL
+    # doc_path = os.path.dirname(args.output)
+    # doc_name = os.path.basename(args.output)
+    # new_doc = ttl.Document(doc_name, doc_path)
+    if args.ttl_format == ttl.MODE_JSON:
+        _writer = ttl.JSONWriter.from_path(args.output)
+    else:
+        _writer = ttl.TxtWriter.from_path(args.output)
     stopwords = set(wsd.stopwords)
     if not args.method or args.method.lower() in ('lesk', 'lelesk'):
         wsd_method = "LELESK"
@@ -289,7 +293,7 @@ def wsd_ttl(cli, args):
         exit()
     print("WSD method: {}".format(wsd_method))
     for idx, sent in enumerate(doc):
-        if args.topk and args.topk < idx:
+        if args.topk and args.topk - 1 < idx:
             break
         print("Processing: {} {}/{}".format(sent.text, idx + 1, len(doc)))
         if not sent.tokens:
@@ -314,8 +318,9 @@ def wsd_ttl(cli, args):
                     sent.new_tag(str(c.synset.ID), token.cfrom, token.cto, tagtype='WN')
                 cli.logger.debug(concept)
         # write sentence
-        new_doc.add_sent(sent)
-    new_doc.write_ttl()
+        _writer.write_sent(sent)
+        # new_doc.add_sent(sent)
+    # ttl.write(args.output, new_doc, mode=args.ttl_format)
     print("Output was written to {}".format(args.output))
     print("Done")
     pass
@@ -362,6 +367,7 @@ def main():
     task.add_argument('--notag', help='Also use sentence level tags for annotations', action='store_true')
     task.add_argument('--nolemmatize', help='Do not perform lemmatization', action='store_true')
     task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk', 'lesk'], default='lelesk')
+    task.add_argument('--ttl_format', help='TTL format', default=ttl.MODE_TSV, choices=[ttl.MODE_JSON, ttl.MODE_TSV])
     app.run()
 
     # parser.add_argument('-b', '--batch', help='Batch mode (e.g. python3 wsdtk.py -b myfile.txt')
