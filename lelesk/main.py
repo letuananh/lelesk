@@ -54,6 +54,7 @@ from chirptext import Counter, Timer, uniquify, header, TextReport
 from puchikarui import Schema
 
 from .config import LLConfig
+from .util import ptpos_to_wn, PUNCS
 from yawlib import SynsetID, YLConfig
 from yawlib import GWordnetSQLite as GWNSQL
 from yawlib import WordnetSQL as WSQL
@@ -84,6 +85,7 @@ class LeLeskWSD:
         self.lemmatized_word_cache = {}
         self.lelesk_tokens_sid_cache = {}  # cache tokens of a given sid
         self.__stopwords = None  # this should be loaded only once
+        self.PUNCS = set(PUNCS)
 
         if dbcache and not isinstance(dbcache, LeskCache):
             dbcache = LeskCache(dbcache)
@@ -123,6 +125,7 @@ class LeLeskWSD:
     def stopwords(self):
         if self.__stopwords is None:
             self.__stopwords = stopwords.words('english')
+            self.__stopwords.extend(PUNCS)
         return self.__stopwords
 
     @property
@@ -131,18 +134,29 @@ class LeLeskWSD:
             self._lemmatizer = nltk.WordNetLemmatizer()
         return self._lemmatizer
 
-    def lemmatize(self, word):
-        if word not in self.lemmatized_word_cache:
-            self.lemmatized_word_cache[word] = self.lemmatizer.lemmatize(word)
-        return self.lemmatized_word_cache[word]
+    def lemmatize(self, words):
+        ''' Return a list of triplets (surface, pos, lemma) '''
+        # if word not in self.lemmatized_word_cache:
+        #     self.lemmatized_word_cache[word] = self.lemmatizer.lemmatize(word)
+        # return self.lemmatized_word_cache[word]
+        tags = nltk.pos_tag(words)
+        tokens = [(w, pos, self.lemmatizer.lemmatize(w, pos=ptpos_to_wn(pos, default='n'))) for w, pos in tags]
+        return tokens  # [(surface, tag, lemma)]
+
+    def lemmatize_ttl(self, sent):
+        tags = nltk.pos_tag([t.text for t in sent.tokens])
+        for token, (surface, pos) in zip(sent, tags):
+            token.pos = pos
+            token.lemma = self.lemmatizer.lemmatize(surface, pos=ptpos_to_wn(pos, default='n'))
+        return sent
 
     def tokenize(self, sentence_text):
         if sentence_text not in self.tokenized_sentence_cache:
             self.tokenized_sentence_cache[sentence_text] = nltk.word_tokenize(sentence_text)
         return self.tokenized_sentence_cache[sentence_text]
 
-    def smart_synset_search(self, lemma, pos):
-        sses = self.gwn.search(lemma=lemma, pos=pos, ctx=self.__gwn_ctx)
+    def smart_synset_search(self, lemma, pos, deep_select=False):
+        sses = self.gwn.search(lemma=lemma, pos=pos, deep_select=deep_select, ctx=self.__gwn_ctx)
         if len(sses) == 0:
             # try replace '-' with space
             sses = self.gwn.search(lemma=lemma.replace('-', ' '), pos=pos, ctx=self.__gwn_ctx)
@@ -202,14 +216,17 @@ class LeLeskWSD:
             self.dbcache.cache(sid_obj, uniquified_lelesk_tokens)
         return uniquified_lelesk_tokens
 
-    def prepare_data(self, sentence_text):
+    def prepare_data(self, sentence_text, remove_stop_word=True):
         '''Given a sentence as a raw text string, perform tokenization, lemmatization
         '''
         # Tokenization
-        tokens = self.tokenize(sentence_text)
+        words = self.tokenize(sentence_text)
         # Lemmatization
-        tokens = [self.lemmatize(x) for x in tokens] + tokens
-        return [w.lower() for w in tokens if w not in self.stopwords]
+        tokens = self.lemmatize(words)
+        if remove_stop_word:
+            return [t for t in tokens if t[0] not in self.stopwords and t[2] not in self.stopwords]
+        else:
+            return tokens
 
     def lelesk_wsd(self, word, sentence_text='', expected_sense='', lemmatizing=True, pos=None, context=None, synsets=None):
         ''' Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0
@@ -224,7 +241,7 @@ class LeLeskWSD:
 
         # 2. Calculate overlap between the context and each given word
         if not context:
-            context = uniquify(self.prepare_data(sentence_text))
+            context = uniquify([x[2] for x in self.prepare_data(sentence_text)])
 
         scores = []
 
@@ -243,17 +260,12 @@ class LeLeskWSD:
         '''
         # 1. Retrieve candidates for the given word
         if not synsets:
-            if (word, pos) not in self.candidates_cache:
-                self.candidates_cache[(word, pos)] = self.build_lelesk_for_word(word, pos=pos)
-            candidates = self.candidates_cache[(word, pos)]
-        else:
-            # candidates = self.build_candidates(synsets)
-            candidates = []
-            for idx, ss in enumerate(synsets):
-                candidates.append(WSDCandidate(idx + 1, ss, []))
+            synsets = self.smart_synset_search(lemma=word, pos=pos)
+        candidates = []
+        for idx, ss in enumerate(synsets):
+            candidates.append(WSDCandidate(idx + 1, ss, []))
 
         scores = []
-        #
         for candidate in candidates:
             freq = self.wn.get_tagcount(candidate.synset.ID.to_wnsql(), ctx=self.__wn_ctx)
             score = freq

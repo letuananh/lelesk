@@ -255,19 +255,31 @@ def build_wsd_object(cli, args):
     return wsd
 
 
+def tokenize_text(cli, args):
+    wsd = build_wsd_object(cli, args)
+    tokens = wsd.prepare_data(args.text)
+    for surface, pos, lemma in tokens:
+        print(surface, pos, lemma)
+
+
 def wsd_word(cli, args):
     ''' Perform WSD on a given WORD in a given CONTEXT'''
-    wsd = build_wsd_object(cli, args)
-    if not args.method or args.method != 'mfs':
-        print("Performing LELESK on [{}] - Context: {}".format(args.word, args.context))
-        output = wsd.lelesk_wsd(args.word, args.context)
-    else:
-        print("Performing MFS on [{}] - Context: {}".format(args.word, args.context))
-        output = wsd.mfs_wsd(args.word, args.context)
-    for score in output:
-        c = score.candidate
-        print("  - Score: {} | {}: {} | freq={}".format(score.score, c.synset, c.synset.definition, score.freq))
-    pass
+    print("WSD sentence: {}".format(args.context))
+    sent = wsd_sent(ttl.Sentence(text=args.context), cli, args)
+    print("Text: {}".format(sent.text))
+    print("Tokens: {}".format(sent.tokens))
+    for c in sent.concepts:
+        print(c)
+    # wsd = build_wsd_object(cli, args)
+    # if not args.method or args.method != 'mfs':
+    #     print("Performing LELESK on [{}] - Context: {}".format(args.word, args.context))
+    #     output = wsd.lelesk_wsd(args.word, args.context)
+    # else:
+    #     print("Performing MFS on [{}] - Context: {}".format(args.word, args.context))
+    #     output = wsd.mfs_wsd(args.word, args.context)
+    # for score in output:
+    #     c = score.candidate
+    #     print("  - Score: {} | {}: {} | freq={}".format(score.score, c.synset, c.synset.definition, score.freq))
 
 
 def wsd_ttl(cli, args):
@@ -295,28 +307,29 @@ def wsd_ttl(cli, args):
     for idx, sent in enumerate(doc):
         if args.topk and args.topk - 1 < idx:
             break
-        print("Processing: {} {}/{}".format(sent.text, idx + 1, len(doc)))
-        if not sent.tokens:
-            sent.tokens = wsd.tokenize(sent.text)
-        # lemmatize if needed
-        if not args.nolemmatize:
-            for token in sent.tokens:
-                if not token.lemma:
-                    token.lemma = wsd.lemmatize(token.text)
-        # build WSD context
-        context = set(token.text.lower() for token in sent.tokens)
-        context.update(token.lemma.lower() for token in sent.tokens)
-        context = context - stopwords
-        for token in sent:
-            cli.logger.debug("Performing {} on [{}] - Context: {}".format(wsd_method, token.text, sent.text))
-            output = wsd_func(token.lemma, sent.text, context=context)
-            if output:
-                c = output[0].candidate
-                concept = sent.new_concept(c.synset.ID, clemma=token.lemma, tokens=[token])
-                if not args.notag:
-                    # also make tags
-                    sent.new_tag(str(c.synset.ID), token.cfrom, token.cto, tagtype='WN')
-                cli.logger.debug(concept)
+        print("Sent {}/{}: {} ".format(idx + 1, len(doc), sent.text))
+        wsd_sent(sent, cli, args, wsd, stopwords, wsd_method, wsd_func)
+        # if not sent.tokens:
+        #     sent.tokens = wsd.tokenize(sent.text)
+        # # lemmatize if needed
+        # if not args.nolemmatize:
+        #     wsd.lemmatize_ttl(sent)
+        # # build WSD context
+        # context = set(token.text.lower() for token in sent.tokens)
+        # context.update(token.lemma.lower() for token in sent.tokens if token.lemma)
+        # context = context - stopwords
+        # for token in sent:
+        #     if token.lemma in stopwords or token.text in stopwords:
+        #         continue
+        #     cli.logger.debug("Performing {} on [{}] - Context: {}".format(wsd_method, token.text, sent.text))
+        #     output = wsd_func(token.lemma if token.lemma else token.text, sent.text, context=context)
+        #     if output:
+        #         c = output[0].candidate
+        #         concept = sent.new_concept(c.synset.ID, clemma=token.lemma, tokens=[token])
+        #         if not args.notag:
+        #             # also make tags
+        #             sent.new_tag(str(c.synset.ID), token.cfrom, token.cto, tagtype='WN')
+        #         cli.logger.debug(concept)
         # write sentence
         _writer.write_sent(sent)
         # new_doc.add_sent(sent)
@@ -324,6 +337,43 @@ def wsd_ttl(cli, args):
     print("Output was written to {}".format(args.output))
     print("Done")
     pass
+
+
+def wsd_sent(sent, cli, args, wsd=None, stopwords=None, wsd_method=None, wsd_func=None):
+    if wsd is None:
+        wsd = build_wsd_object(cli, args)
+    if wsd_method is None or wsd_func is None:
+        if not args.method or args.method.lower() in ('lesk', 'lelesk'):
+            wsd_method = "LELESK"
+            wsd_func = wsd.lelesk_wsd
+        elif args.method.lower() == 'mfs':
+            wsd_method = "MFS"
+            wsd_func = wsd.mfs_wsd
+    if stopwords is None:
+        stopwords = set(wsd.stopwords)
+    if not sent.tokens:
+        sent.tokens = wsd.tokenize(sent.text)
+    # lemmatize if needed
+    if not args.nolemmatize:
+        wsd.lemmatize_ttl(sent)
+    # build WSD context
+    context = set(token.text.lower() for token in sent.tokens)
+    context.update(token.lemma.lower() for token in sent.tokens if token.lemma)
+    context = context - stopwords
+    cli.logger.debug("Sent #{} tokens: {}".format(sent.ID, [(t.text, t.lemma, t.pos) for t in sent]))
+    cli.logger.debug("Sent #{} context: {}".format(sent.ID, context))
+    for token in sent:
+        if token.lemma in wsd.PUNCS or token.text in wsd.PUNCS:
+            continue
+        output = wsd_func(token.lemma if token.lemma else token.text, sent.text, context=context)
+        if output:
+            c = output[0].candidate
+            concept = sent.new_concept(c.synset.ID, clemma=token.lemma if token.lemma else token.text, tokens=[token])
+            if not args.notag:
+                # also make tags
+                sent.new_tag(str(c.synset.ID), token.cfrom, token.cto, tagtype='WN')
+            cli.logger.debug("  #{} /{}/ tk:[{}] => {}".format(sent.ID, wsd_method, (token.text, token.lemma, token.pos), concept))
+    return sent
 
 
 def find_candidates(cli, args):
@@ -355,9 +405,14 @@ def main():
     task = app.add_task('candidates', func=find_candidates)
     task.add_argument('word', help='Word to search for synsets')
 
+    task = app.add_task('tokenize', func=tokenize_text)
+    task.add_argument('text', help='Sentence text to analyse')
+
     task = app.add_task('wsd', func=wsd_word)
-    task.add_argument('word', help='word to perform WSD')
     task.add_argument('context', help='Context to perform WSD')
+    task.add_argument('--word', help='word to perform WSD')
+    task.add_argument('--notag', help='Also use sentence level tags for annotations', action='store_true')
+    task.add_argument('--nolemmatize', help='Do not perform lemmatization', action='store_true')
     task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk'])
 
     task = app.add_task('ttl', func=wsd_ttl)

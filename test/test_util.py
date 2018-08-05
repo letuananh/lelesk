@@ -43,6 +43,8 @@ import os
 import unittest
 import logging
 from lelesk import LeLeskWSD, LeskCache
+from lelesk.util import tokenize
+
 
 ################################################################
 # Configuration
@@ -59,7 +61,7 @@ class TestMain(unittest.TestCase):
 
     def test_known_concepts(self):
         wsd = LeLeskWSD()
-        ss = wsd.smart_synset_search('Ali Baba', pos=None)
+        ss = wsd.smart_synset_search('Ali Baba', pos=None, deep_select=True)
         self.assertTrue(ss)
         self.assertIn('Ali Baba', list(ss)[0].lemmas)
 
@@ -87,6 +89,15 @@ class TestMain(unittest.TestCase):
         lesetc = wsd.build_lelesk_set(n02512053.ID)
         self.assertEqual(set(leset), set(lesetc))
         # TODO: Test this method properly
+
+    def test_tokenize(self):
+        text = 'I have eaten some cakes and gave my dogs some too.'
+        actual = tokenize(text)
+        print(actual)
+
+    def test_stopwords(self):
+        wsd = LeLeskWSD()
+        print(wsd.stopwords)
 
     def test_caching(self):
         wsd = LeLeskWSD()
