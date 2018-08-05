@@ -162,11 +162,11 @@ class LeLeskWSD:
             sses = self.gwn.search(lemma=lemma.replace('-', ' '), pos=pos, ctx=self.__gwn_ctx)
         return sses
 
-    def build_lelesk_for_word(self, a_word, pos=None):
+    def build_lelesk_for_word(self, a_word, pos=None, deep_select=False):
         cache_key = (a_word, pos)
         if cache_key in self.word_cache:
             return self.word_cache[cache_key]
-        synsets = self.smart_synset_search(lemma=a_word, pos=pos)
+        synsets = self.smart_synset_search(lemma=a_word, pos=pos, deep_select=deep_select)
         candidates = self.build_candidates(synsets)
         self.word_cache[cache_key] = candidates
         return candidates
