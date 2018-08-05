@@ -379,20 +379,15 @@ def wsd_sent(sent, cli, args, wsd=None, stopwords=None, wsd_method=None, wsd_fun
 def find_candidates(cli, args):
     ''' Retrieve Word Sense Disambiguation candidates for a word '''
     wsd = build_wsd_object(cli, args)
-    candidates = wsd.build_lelesk_for_word(args.candidates, args.pos)
-    print(candidates)
+    candidates = wsd.build_lelesk_for_word(args.word, args.pos, deep_select=True)
+    for candidate in candidates:
+        print(candidate.id, candidate.synset.ID, candidate.synset.lemmas, candidate.synset.definition)
 
 
 # -----------------------------------------------------------------------
 
 def main():
     '''Main entry of WSD toolkit
-
-    Available commands:
-        test: Run bank test
-        candidates -i CHOSEN_WORD: Find candidates for a given word
-        batch -i PATH_TO_FILE: Perform WSD on a batch file
-        batch -i PATH_TO_SEMCOR_TEST_FILE: Perform WSD on Semcor (e.g. semcor_wn30.txt)
     '''
     app = CLIApp(desc='LeLesk - Word-Sense Disambiguation Toolkit', logger=__name__)
     # Positional argument(s)
@@ -404,6 +399,8 @@ def main():
 
     task = app.add_task('candidates', func=find_candidates)
     task.add_argument('word', help='Word to search for synsets')
+    task.add_argument('--pos', default=None)
+    task.add_argument('--show_tokens', action="store_true")
 
     task = app.add_task('tokenize', func=tokenize_text)
     task.add_argument('text', help='Sentence text to analyse')
