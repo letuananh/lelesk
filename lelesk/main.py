@@ -81,9 +81,6 @@ class LeLeskWSD:
         self.wn30_loc = wn30_loc if wn30_loc else YLConfig.WNSQL30_PATH
         self.gwn = GWNSQL(self.wng_db_loc)
         self.wn = WSQL(self.wn30_loc)
-        self.tokenized_sentence_cache = {}
-        self.lemmatized_word_cache = {}
-        self.lelesk_tokens_sid_cache = {}  # cache tokens of a given sid
         self.__stopwords = None  # this should be loaded only once
         self.PUNCS = set(PUNCS)
 
@@ -136,9 +133,6 @@ class LeLeskWSD:
 
     def lemmatize(self, words):
         ''' Return a list of triplets (surface, pos, lemma) '''
-        # if word not in self.lemmatized_word_cache:
-        #     self.lemmatized_word_cache[word] = self.lemmatizer.lemmatize(word)
-        # return self.lemmatized_word_cache[word]
         tags = nltk.pos_tag(words)
         tokens = [(w, pos, self.lemmatizer.lemmatize(w, pos=ptpos_to_wn(pos, default='n'))) for w, pos in tags]
         return tokens  # [(surface, tag, lemma)]
@@ -151,9 +145,7 @@ class LeLeskWSD:
         return sent
 
     def tokenize(self, sentence_text):
-        if sentence_text not in self.tokenized_sentence_cache:
-            self.tokenized_sentence_cache[sentence_text] = nltk.word_tokenize(sentence_text)
-        return self.tokenized_sentence_cache[sentence_text]
+        return nltk.word_tokenize(sentence_text)
 
     def smart_synset_search(self, lemma, pos, deep_select=False):
         sses = self.gwn.search(lemma=lemma, pos=pos, deep_select=deep_select, ctx=self.__gwn_ctx)
@@ -185,11 +177,6 @@ class LeLeskWSD:
             lelesk_tokens = self.dbcache.select(sid_obj, ctx=self.__dbcache_ctx)
             if lelesk_tokens:
                 return lelesk_tokens
-        # if cached, return from cache
-        if a_sid in self.lelesk_tokens_sid_cache:
-            llset = self.lelesk_tokens_sid_cache[a_sid]
-            return llset
-        # otherwise build the token list ...
         lelesk_tokens = []
         ss = self.gwn.get_synset(a_sid, ctx=self.__gwn_ctx)
         lelesk_tokens.extend(ss.get_tokens())
@@ -210,7 +197,6 @@ class LeLeskWSD:
             lelesk_tokens.extend(s.get_gramwords())
 
         uniquified_lelesk_tokens = [w for w in uniquify(lelesk_tokens) if w not in self.stopwords]
-        self.lelesk_tokens_sid_cache[a_sid] = uniquified_lelesk_tokens
         # try to cache this token list ...
         if self.dbcache:
             self.dbcache.cache(sid_obj, uniquified_lelesk_tokens)
