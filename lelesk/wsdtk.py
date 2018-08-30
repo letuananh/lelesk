@@ -303,7 +303,8 @@ def wsd_ttl(cli, args):
     else:
         print("Unknown WSD method: {}".format(args.method))
         exit()
-    print("WSD method: {}".format(wsd_method))
+    t = Timer()
+    t.start("WSD method: {}".format(wsd_method))
     for idx, sent in enumerate(doc):
         if args.topk and args.topk - 1 < idx:
             break
@@ -335,7 +336,7 @@ def wsd_ttl(cli, args):
         # new_doc.add_sent(sent)
     # ttl.write(args.output, new_doc, mode=args.ttl_format)
     print("Output was written to {}".format(args.output))
-    print("Done")
+    t.stop("Done WSD")
     pass
 
 
