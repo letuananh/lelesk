@@ -65,7 +65,7 @@ from yawlib import WordnetSQL as WSQL
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
+# logger.setLevel(logging.WARNING)
 
 ScoreTup = namedtuple('Score', 'candidate score freq'.split())
 WSDCandidate = namedtuple('WSDCandidate', 'id synset tokens'.split())
@@ -202,19 +202,19 @@ class LeLeskWSD:
             self.dbcache.cache(sid_obj, uniquified_lelesk_tokens)
         return uniquified_lelesk_tokens
 
-    def prepare_data(self, sentence_text, remove_stop_word=True):
+    def prepare_data(self, sentence_text, remove_stop_words=True):
         '''Given a sentence as a raw text string, perform tokenization, lemmatization
         '''
         # Tokenization
         words = self.tokenize(sentence_text)
         # Lemmatization
         tokens = self.lemmatize(words)
-        if remove_stop_word:
+        if remove_stop_words:
             return [t for t in tokens if t[0] not in self.stopwords and t[2] not in self.stopwords]
         else:
             return tokens
 
-    def lelesk_wsd(self, word, sentence_text='', expected_sense='', lemmatizing=True, pos=None, context=None, synsets=None):
+    def lelesk_wsd(self, word, sentence_text='', expected_sense='', lemmatizing=True, pos=None, context=None, synsets=None, remove_stop_words=True, **kwargs):
         ''' Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0
         '''
         # 1. Retrieve candidates for the given word
@@ -227,11 +227,16 @@ class LeLeskWSD:
 
         # 2. Calculate overlap between the context and each given word
         if not context:
-            context = uniquify([x[2] for x in self.prepare_data(sentence_text)])
-
+            context = uniquify([x[2] for x in self.prepare_data(sentence_text, remove_stop_words=remove_stop_words)])
+        else:
+            if remove_stop_words:
+                context_set = set(x for x in context if self.stopwords and x not in self.stopwords)
+            else:
+                context_set = set(context)
+            
         scores = []
 
-        context_set = set(context)
+        logger.info("candidate for {} => {}".format(word, list(c.synset for c in candidates)))
         for candidate in candidates:
             candidate_set = set(candidate.tokens)
             score = len(context_set.intersection(candidate_set))

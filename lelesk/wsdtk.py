@@ -58,6 +58,7 @@ from chirptext import texttaglib as ttl
 from yawlib import YLConfig
 
 from .main import LeLeskWSD, LeskCache
+from .util import ptpos_to_wn
 
 # -----------------------------------------------------------------------
 
@@ -267,7 +268,10 @@ def wsd_word(cli, args):
     print("WSD sentence: {}".format(args.context))
     sent = wsd_sent(ttl.Sentence(text=args.context), cli, args)
     print("Text: {}".format(sent.text))
-    print("Tokens: {}".format(sent.tokens))
+    if args.debug:
+        print("Tokens: {}".format(', '.join('{}/{}/{}'.format(x, x.pos, x.lemma) for x in sent.tokens)))
+    else:
+        print("Tokens: {}".format(', '.join(str(x) for x in sent.tokens)))
     for c in sent.concepts:
         print(c)
     # wsd = build_wsd_object(cli, args)
@@ -286,9 +290,6 @@ def wsd_ttl(cli, args):
     ''' Perform WSD on a TTL profile '''
     wsd = build_wsd_object(cli, args)
     doc = ttl.read(args.input, mode=args.ttl_format)  # input TTL
-    # doc_path = os.path.dirname(args.output)
-    # doc_name = os.path.basename(args.output)
-    # new_doc = ttl.Document(doc_name, doc_path)
     if args.ttl_format == ttl.MODE_JSON:
         _writer = ttl.JSONWriter.from_path(args.output)
     else:
@@ -310,27 +311,6 @@ def wsd_ttl(cli, args):
             break
         print("Sent {}/{}: {} ".format(idx + 1, len(doc), sent.text))
         wsd_sent(sent, cli, args, wsd, stopwords, wsd_method, wsd_func)
-        # if not sent.tokens:
-        #     sent.tokens = wsd.tokenize(sent.text)
-        # # lemmatize if needed
-        # if not args.nolemmatize:
-        #     wsd.lemmatize_ttl(sent)
-        # # build WSD context
-        # context = set(token.text.lower() for token in sent.tokens)
-        # context.update(token.lemma.lower() for token in sent.tokens if token.lemma)
-        # context = context - stopwords
-        # for token in sent:
-        #     if token.lemma in stopwords or token.text in stopwords:
-        #         continue
-        #     cli.logger.debug("Performing {} on [{}] - Context: {}".format(wsd_method, token.text, sent.text))
-        #     output = wsd_func(token.lemma if token.lemma else token.text, sent.text, context=context)
-        #     if output:
-        #         c = output[0].candidate
-        #         concept = sent.new_concept(c.synset.ID, clemma=token.lemma, tokens=[token])
-        #         if not args.notag:
-        #             # also make tags
-        #             sent.new_tag(str(c.synset.ID), token.cfrom, token.cto, tagtype='WN')
-        #         cli.logger.debug(concept)
         # write sentence
         _writer.write_sent(sent)
         # new_doc.add_sent(sent)
@@ -340,7 +320,42 @@ def wsd_ttl(cli, args):
     pass
 
 
-def wsd_sent(sent, cli, args, wsd=None, stopwords=None, wsd_method=None, wsd_func=None):
+def wsd_candidates(sent, cli, args, wsd=None, stopwords=None, remove_stop_words=True, **kwargs):
+    if wsd is None:
+        wsd = build_wsd_object(cli, args)
+    if stopwords is None:
+        stopwords = set(wsd.stopwords)
+    if not sent.tokens:
+        sent.tokens = wsd.tokenize(sent.text)
+    # lemmatize if needed
+    if not args.nolemmatize:
+        wsd.lemmatize_ttl(sent)
+    # build WSD context
+    context = set(token.text.lower() for token in sent.tokens)
+    context.update(token.lemma.lower() for token in sent.tokens if token.lemma)
+    if remove_stop_words:
+        context = context - stopwords
+    cli.logger.debug("Sent #{} tokens: {}".format(sent.ID, [(t.text, t.lemma, t.pos) for t in sent]))
+    cli.logger.debug("Sent #{} context: {}".format(sent.ID, context))
+    for token in sent:
+        if token.lemma in wsd.PUNCS or token.text in wsd.PUNCS:
+            continue
+        elif token.pos and token.pos in ('PRP', '.'):
+            continue
+        # no need to remove stopwords again, they are removed above
+        # output = wsd_func(token.lemma if token.lemma else token.text, sent.text, pos=ptpos_to_wn(token.pos), context=context, remove_stop_words=False)
+        synsets = wsd.smart_synset_search(lemma=token.lemma if token.lemma else token.text, pos=ptpos_to_wn(token.pos))
+        if synsets:
+            for ss in synsets:
+                sent.new_concept(ss.ID, clemma=token.lemma if token.lemma else token.text, tokens=[token])
+                if not args.notag:
+                    # also make tags
+                    sent.new_tag(str(ss.ID), token.cfrom, token.cto, tagtype='WN')
+            cli.logger.debug("  {}/tk:[{}] => {}".format('#{}'.format(sent.ID) or '', (token.text, token.lemma, token.pos), list(synsets)))
+    return sent
+
+
+def wsd_sent(sent, cli, args, wsd=None, stopwords=None, wsd_method=None, wsd_func=None, remove_stop_words=True):
     if wsd is None:
         wsd = build_wsd_object(cli, args)
     if wsd_method is None or wsd_func is None:
@@ -360,20 +375,24 @@ def wsd_sent(sent, cli, args, wsd=None, stopwords=None, wsd_method=None, wsd_fun
     # build WSD context
     context = set(token.text.lower() for token in sent.tokens)
     context.update(token.lemma.lower() for token in sent.tokens if token.lemma)
-    context = context - stopwords
+    if remove_stop_words:
+        context = context - stopwords
     cli.logger.debug("Sent #{} tokens: {}".format(sent.ID, [(t.text, t.lemma, t.pos) for t in sent]))
     cli.logger.debug("Sent #{} context: {}".format(sent.ID, context))
     for token in sent:
         if token.lemma in wsd.PUNCS or token.text in wsd.PUNCS:
             continue
-        output = wsd_func(token.lemma if token.lemma else token.text, sent.text, context=context)
+        elif token.pos and token.pos in ('PRP', '.'):
+            continue
+        # no need to remove stopwords again, they are removed above
+        output = wsd_func(token.lemma if token.lemma else token.text, sent.text, pos=ptpos_to_wn(token.pos), context=context, remove_stop_words=False)
         if output:
             c = output[0].candidate
             concept = sent.new_concept(c.synset.ID, clemma=token.lemma if token.lemma else token.text, tokens=[token])
             if not args.notag:
                 # also make tags
                 sent.new_tag(str(c.synset.ID), token.cfrom, token.cto, tagtype='WN')
-            cli.logger.debug("  #{} /{}/ tk:[{}] => {}".format(sent.ID, wsd_method, (token.text, token.lemma, token.pos), concept))
+            cli.logger.debug("  {}/{}/ tk:[{}] => {}".format('#{}'.format(sent.ID) or '', wsd_method, (token.text, token.lemma, token.pos), concept))
     return sent
 
 
@@ -412,6 +431,7 @@ def main():
     task.add_argument('--notag', help='Also use sentence level tags for annotations', action='store_true')
     task.add_argument('--nolemmatize', help='Do not perform lemmatization', action='store_true')
     task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk'])
+    task.add_argument('--debug', action='store_true')
 
     task = app.add_task('ttl', func=wsd_ttl)
     task.add_argument('input', help='TTL profile')
@@ -423,6 +443,16 @@ def main():
     task.add_argument('--ttl_format', help='TTL format', default=ttl.MODE_TSV, choices=[ttl.MODE_JSON, ttl.MODE_TSV])
     app.run()
 
+    task = app.add_task('cand', func=wsd_candidates)
+    task.add_argument('input', help='TTL profile')
+    task.add_argument('output', help='Output TTL profile')
+    task.add_argument('-n', '--topk', help='Only process top k sentences', type=int)
+    task.add_argument('--notag', help='Also use sentence level tags for annotations', action='store_true')
+    task.add_argument('--nolemmatize', help='Do not perform lemmatization', action='store_true')
+    task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk', 'lesk'], default='lelesk')
+    task.add_argument('--ttl_format', help='TTL format', default=ttl.MODE_TSV, choices=[ttl.MODE_JSON, ttl.MODE_TSV])
+    app.run()
+    
     # parser.add_argument('-b', '--batch', help='Batch mode (e.g. python3 wsdtk.py -b myfile.txt')
     # parser.add_argument('-o', '--output', help='Output log for batch mode')
     # parser.add_argument('-m', '--method', help='WSD method (mfs/lelesk)')

@@ -73,6 +73,9 @@ class TestMain(unittest.TestCase):
         self.assertEqual(len(vsses), 4)
         doge = wsd.smart_synset_search('doge', 'n')
         self.assertEqual(len(doge), 1)
+        # verb?
+        speckled = wsd.smart_synset_search('speckle', 'v')
+        self.assertEqual(len(speckled), 2)
 
     def test_lelesk_set(self):
         wsd = LeLeskWSD()
