@@ -3,42 +3,12 @@
 
 '''
 Le's LESK - Word Sense Disambiguation Package
-Latest version can be found at https://github.com/letuananh/lelesk
-
-Usage:
-    [TODO] WIP
-
-@author: Le Tuan Anh <tuananh.ke@gmail.com>
 '''
 
-# Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+# This code is a part of lelesk library: https://github.com/letuananh/lelesk
+# :copyright: (c) 2014 Le Tuan Anh <tuananh.ke@gmail.com>
+# :license: MIT, see LICENSE for more details.
 
-__author__ = "Le Tuan Anh <tuananh.ke@gmail.com>"
-__copyright__ = "Copyright 2014, lelesk"
-__credits__ = []
-__license__ = "MIT"
-__version__ = "0.1"
-__maintainer__ = "Le Tuan Anh"
-__email__ = "<tuananh.ke@gmail.com>"
-__status__ = "Prototype"
 
 import logging
 import os.path
@@ -49,9 +19,9 @@ from collections import namedtuple
 import nltk
 # from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
-from chirptext import FileHelper
-from chirptext import Counter, Timer, uniquify, header, TextReport
-from puchikarui import Schema
+from texttaglib.chirptext import FileHelper
+from texttaglib.chirptext import Counter, Timer, uniquify, header, TextReport
+from texttaglib.puchikarui import Schema
 
 from .config import LLConfig
 from .util import ptpos_to_wn, PUNCS
@@ -63,10 +33,6 @@ from yawlib import WordnetSQL as WSQL
 # CONFIGURATION
 # -----------------------------------------------------------------------
 
-
-logger = logging.getLogger(__name__)
-# logger.setLevel(logging.WARNING)
-
 ScoreTup = namedtuple('Score', 'candidate score freq'.split())
 WSDCandidate = namedtuple('WSDCandidate', 'id synset tokens'.split())
 
@@ -75,8 +41,7 @@ class LeLeskWSD:
     ''' Le's LESK algorithm for Word-Sense Disambiguation
     '''
     def __init__(self, wng_db_loc=None, wn30_loc=None, verbose=False, dbcache=None):
-        if verbose:
-            print("Initializing LeLeskWSD object ...")
+        logging.getLogger(__name__).debug("Initializing LeLeskWSD object ...")
         self.wng_db_loc = wng_db_loc if wng_db_loc else YLConfig.GWN30_DB
         self.wn30_loc = wn30_loc if wn30_loc else YLConfig.WNSQL30_PATH
         self.gwn = GWNSQL(self.wng_db_loc)
@@ -96,8 +61,7 @@ class LeLeskWSD:
         self.__dbcache_ctx = None
         self.__gwn_ctx = None
         self.__wn_ctx = None
-        if verbose:
-            print("LeLeskWSD object has been initialized ...")
+        logging.getLogger(__name__).debug("LeLeskWSD object has been initialized ...")
 
     def connect(self):
         ''' Use a single database connection for DB access '''
@@ -236,7 +200,7 @@ class LeLeskWSD:
             
         scores = []
 
-        logger.info("candidate for {} => {}".format(word, list(c.synset for c in candidates)))
+        logging.getLogger(__name__).info("candidate for {} => {}".format(word, list(c.synset for c in candidates)))
         for candidate in candidates:
             candidate_set = set(candidate.tokens)
             score = len(context_set.intersection(candidate_set))
@@ -296,7 +260,7 @@ class LeskCache:
         # try to setup DB if needed
         if self.db_file is not None:
             # Create dir if needed
-            logger.info("LeskCache DB is located at {}".format(self.db_file))
+            logging.getLogger(__name__).info("LeskCache DB is located at {}".format(self.db_file))
             if self.db_file != ':memory:':
                 FileHelper.create_dir(os.path.dirname(self.db_file))
 
@@ -420,7 +384,7 @@ class LeskCache:
         with self.db.ds.open() as ctx:
             total_synsets = len(synsets)
             for idx, synset in enumerate(synsets):
-                logger.info("Generating tokens for %s (%s/%s)" % (synset.id, idx, total_synsets))
+                logging.getLogger(__name__).info("Generating tokens for %s (%s/%s)" % (synset.id, idx, total_synsets))
                 debug_file = TextReport(os.path.join(self.debug_dir, synset.offset + '.txt'))
                 tokens = self.wsd.build_lelesk_set(synset.id, debug_file)
                 for token in tokens:

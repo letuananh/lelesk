@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''
+"""
 LeLESK utilities
-Latest version can be found at https://github.com/letuananh/lelesk
+"""
 
-@author: Le Tuan Anh <tuananh.ke@gmail.com>
-'''
+# This code is a part of lelesk library: https://github.com/letuananh/lelesk
+# :copyright: (c) 2014 Le Tuan Anh <tuananh.ke@gmail.com>
+# :license: MIT, see LICENSE for more details.
 
-from chirptext.cli import setup_logging
+from texttaglib.chirptext.cli import setup_logging
 setup_logging('logging.json', 'logs')
 
 
