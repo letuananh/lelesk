@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''
+"""
 Word Sense Disambiguation Toolkit
-Latest version can be found at https://github.com/letuananh/lelesk
 
 Usage:
     # Build lelesk set
@@ -14,47 +13,19 @@ Usage:
 
     # test WSD batch mode
     python3 wsdtk.py -b data/test.txt -o data/test_report.txt -r data/test_debug.txt
+"""
 
+# This code is a part of lelesk library: https://github.com/letuananh/lelesk
+# :copyright: (c) 2014 Le Tuan Anh <tuananh.ke@gmail.com>
+# :license: MIT, see LICENSE for more details.
 
-@author: Le Tuan Anh <tuananh.ke@gmail.com>
-'''
-
-# Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-
-__author__ = "Le Tuan Anh <tuananh.ke@gmail.com>"
-__copyright__ = "Copyright 2014, lelesk"
-__credits__ = []
-__license__ = "MIT"
-__version__ = "0.1"
-__maintainer__ = "Le Tuan Anh"
-__email__ = "<tuananh.ke@gmail.com>"
-__status__ = "Prototype"
-
-# import sys
 import os.path
 from collections import namedtuple
 
-from chirptext.leutile import Timer, Counter, Table
-from chirptext.cli import CLIApp, setup_logging
-from chirptext import texttaglib as ttl
+from texttaglib.chirptext.leutile import Timer, Counter, Table
+from texttaglib.chirptext.cli import CLIApp, setup_logging
+from texttaglib.chirptext import chio
+from texttaglib.chirptext import ttl
 from yawlib import YLConfig
 
 from .main import LeLeskWSD, LeskCache
@@ -263,9 +234,8 @@ def tokenize_text(cli, args):
         print(surface, pos, lemma)
 
 
-def wsd_word(cli, args):
+def wsd_text(cli, args):
     ''' Perform WSD on a given WORD in a given CONTEXT'''
-    print("WSD sentence: {}".format(args.context))
     sent = wsd_sent(ttl.Sentence(text=args.context), cli, args)
     print("Text: {}".format(sent.text))
     if args.debug:
@@ -274,22 +244,11 @@ def wsd_word(cli, args):
         print("Tokens: {}".format(', '.join(str(x) for x in sent.tokens)))
     for c in sent.concepts:
         print(c)
-    # wsd = build_wsd_object(cli, args)
-    # if not args.method or args.method != 'mfs':
-    #     print("Performing LELESK on [{}] - Context: {}".format(args.word, args.context))
-    #     output = wsd.lelesk_wsd(args.word, args.context)
-    # else:
-    #     print("Performing MFS on [{}] - Context: {}".format(args.word, args.context))
-    #     output = wsd.mfs_wsd(args.word, args.context)
-    # for score in output:
-    #     c = score.candidate
-    #     print("  - Score: {} | {}: {} | freq={}".format(score.score, c.synset, c.synset.definition, score.freq))
 
 
-def wsd_ttl(cli, args):
-    ''' Perform WSD on a TTL profile '''
+def wsd_document(doc, cli, args):
+    """ Batch perform WSD """
     wsd = build_wsd_object(cli, args)
-    doc = ttl.read(args.input, mode=args.ttl_format)  # input TTL
     if args.ttl_format == ttl.MODE_JSON:
         _writer = ttl.JSONWriter.from_path(args.output)
     else:
@@ -313,11 +272,29 @@ def wsd_ttl(cli, args):
         wsd_sent(sent, cli, args, wsd, stopwords, wsd_method, wsd_func)
         # write sentence
         _writer.write_sent(sent)
-        # new_doc.add_sent(sent)
-    # ttl.write(args.output, new_doc, mode=args.ttl_format)
     print("Output was written to {}".format(args.output))
     t.stop("Done WSD")
-    pass
+
+
+def wsd_file(cli, args):
+    """ WSD a text file """
+    if args.format == "ttl":
+        return wsd_ttl(cli, args)
+    elif args.format == "txt":
+        if os.path.isfile(args.input):
+            lines = chio.read_file(args.input).splitlines()
+            doc = ttl.Document()
+            for line in lines:
+                doc.new_sent(line)
+            wsd_document(doc, cli, args)
+        else:
+            print(f"Error. Input file not found! ({args.input})")
+
+
+def wsd_ttl(cli, args):
+    ''' Perform WSD on a TTL document '''
+    doc = ttl.read(args.input, mode=args.ttl_format)  # input TTL
+    wsd_document(doc, cli, args)
 
 
 def wsd_candidates(sent, cli, args, wsd=None, stopwords=None, remove_stop_words=True, **kwargs):
@@ -425,7 +402,7 @@ def main():
     task = app.add_task('tokenize', func=tokenize_text)
     task.add_argument('text', help='Sentence text to analyse')
 
-    task = app.add_task('wsd', func=wsd_word)
+    task = app.add_task('wsd', func=wsd_text)
     task.add_argument('context', help='Context to perform WSD')
     task.add_argument('--word', help='word to perform WSD')
     task.add_argument('--notag', help='Also use sentence level tags for annotations', action='store_true')
@@ -433,6 +410,16 @@ def main():
     task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk'])
     task.add_argument('--debug', action='store_true')
 
+    task = app.add_task('file', func=wsd_file)
+    task.add_argument('input', help='Input file')
+    task.add_argument('output', help='Output file (always in TTL format)')
+    task.add_argument('-n', '--topk', help='Only process top k sentences', type=int)
+    task.add_argument('--notag', help='Also use sentence level tags for annotations', action='store_true')
+    task.add_argument('--nolemmatize', help='Do not perform lemmatization', action='store_true')
+    task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk', 'lesk'], default='lelesk')
+    task.add_argument('-f', '--format', help="File format (TTL, txt)", choices=["txt", "ttl"], default='txt')
+    task.add_argument('--ttl_format', help='TTL format', default=ttl.MODE_TSV, choices=[ttl.MODE_JSON, ttl.MODE_TSV])
+    
     task = app.add_task('ttl', func=wsd_ttl)
     task.add_argument('input', help='TTL profile')
     task.add_argument('output', help='Output TTL profile')
@@ -441,7 +428,6 @@ def main():
     task.add_argument('--nolemmatize', help='Do not perform lemmatization', action='store_true')
     task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk', 'lesk'], default='lelesk')
     task.add_argument('--ttl_format', help='TTL format', default=ttl.MODE_TSV, choices=[ttl.MODE_JSON, ttl.MODE_TSV])
-    app.run()
 
     task = app.add_task('cand', func=wsd_candidates)
     task.add_argument('input', help='TTL profile')
@@ -452,33 +438,6 @@ def main():
     task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk', 'lesk'], default='lelesk')
     task.add_argument('--ttl_format', help='TTL format', default=ttl.MODE_TSV, choices=[ttl.MODE_JSON, ttl.MODE_TSV])
     app.run()
-    
-    # parser.add_argument('-b', '--batch', help='Batch mode (e.g. python3 wsdtk.py -b myfile.txt')
-    # parser.add_argument('-o', '--output', help='Output log for batch mode')
-    # parser.add_argument('-m', '--method', help='WSD method (mfs/lelesk)')
-    # parser.add_argument('-d', '--leskdb', help='Generate tokens for all synsets for all synsets for faster WSD', action="store_true")
-    # parser.add_argument('-r', '--report', help='Path to report file (default will be stdout)')
-
-    # wsd = LeLeskWSD(wng_db_loc, wn30_loc, verbose=not args.quiet, dbcache=LeskCache())
-    # wsd_method = args.method if args.method else 'lelesk'
-
-    # perform WSD for a single word given a context
-    # if args.wsd:
-    #     word = args.wsd
-    #     context = args.context
-    #     if not context:
-    #         print("Please use ./wsdtk.py -W MYWORD -x 'This is a context where MYWORD appear'")
-    #     else:
-    #         wsd.lelesk_wsd(word, context)
-    # # batch mode WSD
-    # elif args.batch:
-    #     batch_wsd(args.batch, wsd, args.output, wsd_method)
-    #     pass
-    # elif args.leskdb:
-    #     generate_tokens(wsd)
-    # else:
-    #     parser.print_help()
-    # pass  # end main()
 
 
 if __name__ == "__main__":
