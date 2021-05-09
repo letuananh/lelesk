@@ -1,77 +1,60 @@
-Le's Lesk
-======
+# Le's Lesk
 
-An attempt to improve extended LESK using glosstag WordNet
+A fast Python 3 Word-Sense Disambiguation package (WSD) using the extended LESK algorithm
 
-# REQUIRED PACKAGES
-----------------------
+## Install
 
-1. Princeton WordNet Gloss Corpus [WNG]
-  - Download URL: http://wordnetcode.princeton.edu/glosstag-files/WordNet-3.0-glosstag.tar.bz2
-  - Homepage    : http://wordnet.princeton.edu/glosstag.shtml
+`lelesk` is available on [PyPI](https://pypi.org/project/lelesk/) and can be installed using pip
 
-2. Princeton WordNet 3.0 SQLite [WNSqlite]
-  - Download URL : http://downloads.sourceforge.net/project/wnsql/wnsql3/sqlite/3.0/sqlite-30.db.zip
-  - Home page    : http://wnsqlbuilder.sourceforge.net/
-
-3. NLTK version 3.0
-  - Home page    : http://nltk.org/
-
-# INSTALLATION
-----------------------
-1. Install NLTK & download all data
-2. Install Yawlib & wordnet databases
-
-# USING LeLESK
-----------------------
-To make a single WSD call, execute the following command:
-```
-python3 wsdtk.py -W YOUR_WORD -x YOUR_SENTENCE
-```
-For example, if you want to disambiguate the word "bank" in the sentence "I go to the bank to withdraw money", use:
-```
-python3 wsdtk.py -W "bank" -x "I go to the bank to withdraw money"
+```bash
+pip install lelesk
 ```
 
-To run WSD in batch mode, execute the following command:
+Lelesk uses NLTK lemmatizer and yawlib wordnet API.
+To install NLTK data, start a Python prompt, `import nltk` and then run the download command (only the `book` package is required)
+
+```python
+$ python3
+Python 3.6.9 (default, Jan 26 2021, 15:33:00) 
+[GCC 8.4.0] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import nltk
+>>> nltk.download("book")
 ```
-python3 wsdtk.py -b data/datafile.txt -o data/datafile_summary.txt > data/datafile_details.txt
+
+Download `yawlib` [databases](https://osf.io/9udjk/) and extract all the db files to `~/wordnet`.
+For more information:
+
+- Installing NLTK data: https://www.nltk.org/data.html
+- Installing Yawlib wordnets: https://pypi.org/project/yawlib/
+
+## Command-line tools
+
+To disambiguate a sentence, run this command on the terminal:
+
+```bash
+python3 -m lelesk wsd "I go to the bank to get money."
 ```
 
-# RESULT
+To perform word-sense disambiguation on a text file, prepare a text file with each line is a sentence. 
 
-On a decent PC with quadcore i7 and 4 GB RAM, it takes ~13 minutes to process annotated document "The Adventure of the Speckled Band" in NTU-MC. This is the result you should be able to get with the latest version:
+For example here is the content of the file `demo.txt`
 
-| Information                         |    Stat |
-|:------------------------------------|--------:|
-| Sentences                           |     599 |
-| Correct sense ranked the first      |    2544 |
-| Correct sense ranked the 2nd or 3rd |    1328 |
-| Wrong                               |   1325  |
-| NoSense                             |    122  |
-| TotalSense                          |    5319 |
+```
+I go to the bank to withdraw money.
+I sat at the river bank.
+```
 
-Development test result (a subset of speckled.txt)
+you then can run the following command
 
-LELESK
+```
+# output to TTL/JSON (a single file)
+python3 -m lelesk file demo.txt demo_wsd_output.json --ttl json
 
-| Information                         |    Instance | Classes |
-|:------------------------------------|--------:|-----------:
-| Correct sense ranked the first      |     190 |   139 |
-| Correct sense ranked the 2nd or 3rd |     105 |   100 |
-| Wrong                               |      96 |    83 |
-| NoSense                             |       9 |     5 |
-| TotalSense                          |     400 |   - |
+# output to TTL/TSV (multiple TSV files)
+python3 -m lelesk file demo.txt demo_wsd_output.json --ttl tsv
+```
 
-MFS
+# Issues
 
-| Information                         |    Instance | Classes |
-|:------------------------------------|--------:|-----------:
-| Correct sense ranked the first      |     211 |   147 |
-| Correct sense ranked the 2nd or 3rd |      93 |    86 |
-| Wrong                               |      87 |    73 |
-| NoSense                             |       9 |     5 |
-| TotalSense                          |     400 |  -  |
-
-
-
+If you have any issue, please report at https://github.com/letuananh/lelesk/issues
