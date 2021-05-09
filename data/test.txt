@@ -1,4 +1,0 @@
-love	01828736-v	v	I love cooking	I|love|cooking
-adventure	00796315-n	n	The Adventure of the Speckled Band	the|adventure|of|the|speckle|band
-speckle	01538310-v	v	The Adventure of the Speckled Band	the|adventure|of|the|speckle|band
-band	02784218-n	n	The Adventure of the Speckled Band	the|adventure|of|the|speckle|band
