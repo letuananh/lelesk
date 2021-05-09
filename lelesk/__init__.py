@@ -2,15 +2,11 @@
 # -*- coding: utf-8 -*-
 
 '''
-Le's LESK - Word Sense Disambiguation Package
-Latest version can be found at https://github.com/letuananh/lelesk
-
-Usage:
-    [TODO] WIP
-
-@author: Le Tuan Anh <tuananh.ke@gmail.com>
+Le's LESK - Word Sense Disambiguation package using extended LESK algorithm
 '''
 
+# Latest version is available at https://github.com/letuananh/lelesk
+#
 # Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,16 +27,12 @@ Usage:
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-__author__ = "Le Tuan Anh <tuananh.ke@gmail.com>"
-__copyright__ = "Copyright 2014, lelesk"
-__credits__ = []
-__license__ = "MIT"
-__version__ = "0.1"
-__maintainer__ = "Le Tuan Anh"
-__email__ = "<tuananh.ke@gmail.com>"
-__status__ = "Prototype"
+from .__version__ import __author__, __email__, __copyright__, __maintainer__
+from .__version__ import __credits__, __license__, __description__, __url__
+from .__version__ import __version_major__, __version_long__, __version__, __status__
 
 from .main import LeLeskWSD, LeskCache
 from .config import LLConfig
 
-__all__ = ['LLConfig', 'LeLeskWSD', 'LeskCache']
+__all__ = ['LLConfig', 'LeLeskWSD', 'LeskCache',
+           "__version__", "__author__", "__description__", "__copyright__"]
