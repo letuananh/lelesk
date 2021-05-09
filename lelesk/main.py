@@ -17,7 +17,6 @@ from collections import defaultdict as dd
 from collections import namedtuple
 
 import nltk
-# from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
 from texttaglib.chirptext import FileHelper
 from texttaglib.chirptext import Counter, Timer, uniquify, header, TextReport
