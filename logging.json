@@ -39,9 +39,12 @@
 
     "loggers": {
         "__main__": {
-            "level": "INFO",
+            "level": "WARNING",
             "handlers": ["file_handler_verbose"],
             "propagate": "no"
+        },
+        "lelesk": {
+            "level": "WARNING"
         }
     },
 
