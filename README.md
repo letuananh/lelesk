@@ -11,7 +11,7 @@ pip install lelesk
 ```
 
 Lelesk uses NLTK lemmatizer and yawlib wordnet API.
-To install NLTK data, start a Python prompt, `import nltk` and then run the download command (only the `book` package is required)
+To install NLTK data, start a Python prompt, `import nltk` and then download the required data
 
 ```python
 $ python3
@@ -19,7 +19,7 @@ Python 3.6.9 (default, Jan 26 2021, 15:33:00)
 [GCC 8.4.0] on linux
 Type "help", "copyright", "credits" or "license" for more information.
 >>> import nltk
->>> nltk.download("book")
+>>> nltk.download(['stopwords', 'punkt', 'averaged_perceptron_tagger', 'wordnet'])
 ```
 
 Download and extract `yawlib` [pre-built databases](https://github.com/letuananh/yawlib/releases/) to `~/wordnet`.
