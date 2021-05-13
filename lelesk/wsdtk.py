@@ -28,6 +28,7 @@ from texttaglib.chirptext import chio
 from texttaglib.chirptext import ttl
 from yawlib import YLConfig
 
+from . import __version__
 from .main import LeLeskWSD, LeskCache
 from .util import ptpos_to_wn
 
@@ -386,7 +387,7 @@ def find_candidates(cli, args):
 def main():
     '''Main entry of WSD toolkit
     '''
-    app = CLIApp(desc='LeLesk - Word-Sense Disambiguation Toolkit', logger=__name__)
+    app = CLIApp(desc=f'LeLesk - Word-Sense Disambiguation Toolkit - Version {__version__}', logger=__name__)
     # Positional argument(s)
     app.parser.add_argument('-w', '--wnsql', help='Location to WordNet 3.0 SQLite database', default=YLConfig.WNSQL30_PATH)
     app.parser.add_argument('-g', '--glosswn', help='Location to Gloss WordNet SQLite database', default=YLConfig.GWN30_DB)
