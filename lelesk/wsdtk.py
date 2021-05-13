@@ -217,7 +217,7 @@ def dump_counter(counter, file_obj, header):
 
 
 def get_lelesk_set(cli, args):
-    ''' Get hyponyms and hypernyms given a synsetID '''
+    ''' Find all related word forms for a synsetID '''
     wsd = build_wsd_object(cli, args)
     print(wsd.build_lelesk_set(args.synsetid))
 
@@ -235,7 +235,7 @@ def tokenize_text(cli, args):
 
 
 def wsd_text(cli, args):
-    ''' Perform WSD on a given WORD in a given CONTEXT'''
+    ''' Perform word-sense disambiguation on a sentence '''
     sent = wsd_sent(ttl.Sentence(text=args.context), cli, args)
     print("Text: {}".format(sent.text))
     if args.debug:
@@ -374,7 +374,7 @@ def wsd_sent(sent, cli, args, wsd=None, stopwords=None, wsd_method=None, wsd_fun
 
 
 def find_candidates(cli, args):
-    ''' Retrieve Word Sense Disambiguation candidates for a word '''
+    ''' Find all sense candidates for a word '''
     wsd = build_wsd_object(cli, args)
     candidates = wsd.build_lelesk_for_word(args.word, args.pos, deep_select=True)
     for candidate in candidates:
@@ -390,17 +390,6 @@ def main():
     # Positional argument(s)
     app.parser.add_argument('-w', '--wnsql', help='Location to WordNet 3.0 SQLite database', default=YLConfig.WNSQL30_PATH)
     app.parser.add_argument('-g', '--glosswn', help='Location to Gloss WordNet SQLite database', default=YLConfig.GWN30_DB)
-
-    task = app.add_task('lelesk', func=get_lelesk_set)
-    task.add_argument('synsetid', help='Synset ID')
-
-    task = app.add_task('candidates', func=find_candidates)
-    task.add_argument('word', help='Word to search for synsets')
-    task.add_argument('--pos', default=None)
-    task.add_argument('--show_tokens', action="store_true")
-
-    task = app.add_task('tokenize', func=tokenize_text)
-    task.add_argument('text', help='Sentence text to analyse')
 
     task = app.add_task('wsd', func=wsd_text)
     task.add_argument('context', help='Context to perform WSD')
@@ -437,6 +426,18 @@ def main():
     task.add_argument('--nolemmatize', help='Do not perform lemmatization', action='store_true')
     task.add_argument('-m', '--method', help='WSD method (mfs/lelesk)', choices=['mfs', 'lelesk', 'lesk'], default='lelesk')
     task.add_argument('--ttl_format', help='TTL format', default=ttl.MODE_TSV, choices=[ttl.MODE_JSON, ttl.MODE_TSV])
+
+    task = app.add_task('forms', func=get_lelesk_set)
+    task.add_argument('synsetid', help='Synset ID')
+
+    task = app.add_task('candidates', func=find_candidates)
+    task.add_argument('word', help='Word to search for synsets')
+    task.add_argument('--pos', default=None)
+    task.add_argument('--show_tokens', action="store_true")
+
+    task = app.add_task('tokenize', func=tokenize_text)
+    task.add_argument('text', help='Sentence text to analyse')
+
     app.run()
 
 
