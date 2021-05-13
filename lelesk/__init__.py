@@ -5,7 +5,7 @@
 Le's LESK - Word Sense Disambiguation package using extended LESK algorithm
 '''
 
-# Latest version is available at https://github.com/letuananh/lelesk
+# This code is a part of lelesk library: https://github.com/letuananh/lelesk
 #
 # Copyright (c) 2014, Le Tuan Anh <tuananh.ke@gmail.com>
 #

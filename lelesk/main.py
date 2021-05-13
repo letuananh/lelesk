@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''
+"""
 Le's LESK - Word Sense Disambiguation Package
-'''
+"""
 
 # This code is a part of lelesk library: https://github.com/letuananh/lelesk
 # :copyright: (c) 2014 Le Tuan Anh <tuananh.ke@gmail.com>
 # :license: MIT, see LICENSE for more details.
-
 
 import logging
 import os.path
@@ -37,8 +36,8 @@ WSDCandidate = namedtuple('WSDCandidate', 'id synset tokens'.split())
 
 
 class LeLeskWSD:
-    ''' Le's LESK algorithm for Word-Sense Disambiguation
-    '''
+    """ Le's LESK algorithm for Word-Sense Disambiguation
+    """
     def __init__(self, wng_db_loc=None, wn30_loc=None, verbose=False, dbcache=None):
         logging.getLogger(__name__).debug("Initializing LeLeskWSD object ...")
         self.wng_db_loc = wng_db_loc if wng_db_loc else YLConfig.GWN30_DB
@@ -63,7 +62,7 @@ class LeLeskWSD:
         logging.getLogger(__name__).debug("LeLeskWSD object has been initialized ...")
 
     def connect(self):
-        ''' Use a single database connection for DB access '''
+        """ Use a single database connection for DB access """
         self.disconnect()
         if self.dbcache is not None:
             self.__dbcache_ctx = self.dbcache.db.ctx()
@@ -95,7 +94,7 @@ class LeLeskWSD:
         return self._lemmatizer
 
     def lemmatize(self, words):
-        ''' Return a list of triplets (surface, pos, lemma) '''
+        """ Return a list of triplets (surface, pos, lemma) """
         tags = nltk.pos_tag(words)
         tokens = [(w, pos, self.lemmatizer.lemmatize(w, pos=ptpos_to_wn(pos, default='n'))) for w, pos in tags]
         return tokens  # [(surface, tag, lemma)]
@@ -166,8 +165,8 @@ class LeLeskWSD:
         return uniquified_lelesk_tokens
 
     def prepare_data(self, sentence_text, remove_stop_words=True):
-        '''Given a sentence as a raw text string, perform tokenization, lemmatization
-        '''
+        """Given a sentence as a raw text string, perform tokenization, lemmatization
+        """
         # Tokenization
         words = self.tokenize(sentence_text)
         # Lemmatization
@@ -178,8 +177,8 @@ class LeLeskWSD:
             return tokens
 
     def lelesk_wsd(self, word, sentence_text='', expected_sense='', lemmatizing=True, pos=None, context=None, synsets=None, remove_stop_words=True, **kwargs):
-        ''' Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0
-        '''
+        """ Perform Word-sense disambiguation with extended simplified LESK and annotated WordNet 3.0
+        """
         # 1. Retrieve candidates for the given word
         if not synsets:
             if (word, pos) not in self.candidates_cache:
@@ -210,8 +209,8 @@ class LeLeskWSD:
         return scores
 
     def mfs_wsd(self, word, sentence_text, expected_sense='', lemmatizing=True, pos=None, synsets=None, **kwargs):
-        '''Perform Word-sense disambiguation with just most-frequent senses
-        '''
+        """Perform Word-sense disambiguation with just most-frequent senses
+        """
         # 1. Retrieve candidates for the given word
         if not synsets:
             synsets = self.smart_synset_search(lemma=word, pos=pos)
@@ -244,14 +243,14 @@ class LeskCacheSchema(Schema):
 
 class LeskCache:
     def __init__(self, db_file=None, wsd=None, debug_dir=None):
-        ''' Create an instance of LeskCache
+        """ Create an instance of LeskCache
 
         Arguments:
             wsd       -- An instance of LeLeskWSD
             db_file   -- Path to Cache DB file (default to ./data/lesk_cache.db)
             debug_dir -- Details of how tokens are generated for synset will be stored here.
             (Default values are defined in config.py)
-        '''
+        """
         self.wsd = wsd
         self.db_file = db_file if db_file else LLConfig.LELESK_CACHE_DB_LOC
         self.debug_dir = debug_dir if debug_dir else LLConfig.LELESK_CACHE_DEBUG_DIR
