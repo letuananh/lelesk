@@ -185,7 +185,7 @@ def batch_wsd(infile_loc, wsd_obj, outfile_loc=None, method='lelesk', use_pos=Fa
             dump_counter(wrong_count, outfile, '::WRONG-TOKENS::')
             dump_counter(nosense_count, outfile, '::NOSENSE-TOKENS::')
             # write summary
-            totalcount = len(match_count) + len(top3_count) + len(wrong_count) + len(nosense_count)
+            # totalcount = len(match_count) + len(top3_count) + len(wrong_count) + len(nosense_count)
             outfile.write("\n")
             outfile.write("::SUMMARY::\n")
             outfile.write("%s\n" % (tbatch))
