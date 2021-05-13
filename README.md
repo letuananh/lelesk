@@ -22,7 +22,8 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> nltk.download("book")
 ```
 
-Download `yawlib` [databases](https://osf.io/9udjk/) and extract all the db files to `~/wordnet`.
+Download and extract `yawlib` [pre-built databases](https://github.com/letuananh/yawlib/releases/) to `~/wordnet`.
+
 For more information:
 
 - Installing NLTK data: https://www.nltk.org/data.html
