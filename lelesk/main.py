@@ -190,11 +190,11 @@ class LeLeskWSD:
         # 2. Calculate overlap between the context and each given word
         if not context:
             context = uniquify([x[2] for x in self.prepare_data(sentence_text, remove_stop_words=remove_stop_words)])
+
+        if remove_stop_words:
+            context_set = set(x for x in context if self.stopwords and x not in self.stopwords)
         else:
-            if remove_stop_words:
-                context_set = set(x for x in context if self.stopwords and x not in self.stopwords)
-            else:
-                context_set = set(context)
+            context_set = set(context)
             
         scores = []
 
